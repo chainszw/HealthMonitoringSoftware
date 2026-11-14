@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+
+/* Design tokens (Owner B). Use as Tailwind classes: bg-status-green, text-status-red, ... */
+@theme {
+  --color-status-green: #22c55e;
+  --color-status-amber: #f59e0b;
+  --color-status-red: #ef4444;
+  --color-status-unknown: #64748b;
+  --color-space-900: #0b1020;
+  --color-space-800: #131a2e;
+  --color-space-700: #1e2742;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-space-900 text-slate-100 antialiased;
+}

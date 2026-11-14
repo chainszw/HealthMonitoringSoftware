@@ -1,0 +1,471 @@
+{
+  "disclaimer": "Crew Health Console supports flight surgeons and crew self-monitoring. It does not replace a flight surgeon, medical diagnosis, or mission medical procedures. Not a medical device. Placeholder content: ranges and guidance are not yet verified.",
+  "unknownStatusAction": "No valid reading yet. Log a measurement to see a status.",
+  "indicators": [
+    {
+      "id": "heart_rate",
+      "name": "Resting heart rate",
+      "unit": "bpm",
+      "howToMeasureInSpace": "PLACEHOLDER: Measure after 5 minutes of rest, restrained at your workstation, using the chest-strap or wrist monitor.",
+      "bodySystem": "heart",
+      "rangesStatus": "TODO-verify",
+      "ranges": {
+        "green": [
+          {
+            "min": 50,
+            "max": 90
+          }
+        ],
+        "amber": [
+          {
+            "min": 40,
+            "max": 50
+          },
+          {
+            "min": 90,
+            "max": 110
+          }
+        ],
+        "red": [
+          {
+            "max": 40
+          },
+          {
+            "min": 110
+          }
+        ]
+      },
+      "actions": {
+        "green": "PLACEHOLDER: Within expected range. Keep up your exercise schedule.",
+        "amber": "PLACEHOLDER: Re-measure after 10 minutes of rest. Note caffeine, exercise, or stress.",
+        "red": "PLACEHOLDER: Re-measure now. If confirmed, contact the flight surgeon at the next opportunity."
+      },
+      "sources": [
+        {
+          "title": "TODO: add source (e.g. NASA Human Research Program)"
+        }
+      ],
+      "input": {
+        "min": 20,
+        "max": 220,
+        "step": 1
+      }
+    },
+    {
+      "id": "bp_systolic",
+      "name": "Blood pressure (systolic)",
+      "unit": "mmHg",
+      "howToMeasureInSpace": "PLACEHOLDER: Seated and restrained, cuff on upper arm at heart level, after 5 minutes of rest.",
+      "bodySystem": "heart",
+      "rangesStatus": "TODO-verify",
+      "ranges": {
+        "green": [
+          {
+            "min": 90,
+            "max": 129
+          }
+        ],
+        "amber": [
+          {
+            "min": 80,
+            "max": 90
+          },
+          {
+            "min": 129,
+            "max": 149
+          }
+        ],
+        "red": [
+          {
+            "max": 80
+          },
+          {
+            "min": 149
+          }
+        ]
+      },
+      "actions": {
+        "green": "PLACEHOLDER: Within expected range.",
+        "amber": "PLACEHOLDER: Re-measure in 15 minutes. Check hydration and fluid intake.",
+        "red": "PLACEHOLDER: Re-measure now. If confirmed, contact the flight surgeon."
+      },
+      "sources": [
+        {
+          "title": "TODO: add source"
+        }
+      ],
+      "input": {
+        "min": 50,
+        "max": 250,
+        "step": 1
+      }
+    },
+    {
+      "id": "bp_diastolic",
+      "name": "Blood pressure (diastolic)",
+      "unit": "mmHg",
+      "howToMeasureInSpace": "PLACEHOLDER: Recorded at the same time as systolic.",
+      "bodySystem": "heart",
+      "rangesStatus": "TODO-verify",
+      "ranges": {
+        "green": [
+          {
+            "min": 60,
+            "max": 84
+          }
+        ],
+        "amber": [
+          {
+            "min": 50,
+            "max": 60
+          },
+          {
+            "min": 84,
+            "max": 94
+          }
+        ],
+        "red": [
+          {
+            "max": 50
+          },
+          {
+            "min": 94
+          }
+        ]
+      },
+      "actions": {
+        "green": "PLACEHOLDER: Within expected range.",
+        "amber": "PLACEHOLDER: Re-measure in 15 minutes.",
+        "red": "PLACEHOLDER: Re-measure now. If confirmed, contact the flight surgeon."
+      },
+      "sources": [
+        {
+          "title": "TODO: add source"
+        }
+      ],
+      "input": {
+        "min": 30,
+        "max": 150,
+        "step": 1
+      }
+    },
+    {
+      "id": "glucose",
+      "name": "Blood glucose (fasting)",
+      "unit": "mg/dL",
+      "howToMeasureInSpace": "PLACEHOLDER: Fingerstick with onboard glucometer before breakfast.",
+      "bodySystem": "metabolic",
+      "rangesStatus": "TODO-verify",
+      "ranges": {
+        "green": [
+          {
+            "min": 70,
+            "max": 99
+          }
+        ],
+        "amber": [
+          {
+            "min": 55,
+            "max": 70
+          },
+          {
+            "min": 99,
+            "max": 125
+          }
+        ],
+        "red": [
+          {
+            "max": 55
+          },
+          {
+            "min": 125
+          }
+        ]
+      },
+      "actions": {
+        "green": "PLACEHOLDER: Within expected range.",
+        "amber": "PLACEHOLDER: Review recent meals and re-test tomorrow morning.",
+        "red": "PLACEHOLDER: If low, take fast-acting carbohydrate and re-test in 15 minutes. Contact the flight surgeon."
+      },
+      "sources": [
+        {
+          "title": "TODO: add source"
+        }
+      ],
+      "input": {
+        "min": 20,
+        "max": 400,
+        "step": 1
+      }
+    },
+    {
+      "id": "temperature",
+      "name": "Body temperature",
+      "unit": "°C",
+      "howToMeasureInSpace": "PLACEHOLDER: Oral or forehead thermometer. Cabin temperature affects readings; note it.",
+      "bodySystem": "immune",
+      "rangesStatus": "TODO-verify",
+      "ranges": {
+        "green": [
+          {
+            "min": 36.1,
+            "max": 37.5
+          }
+        ],
+        "amber": [
+          {
+            "min": 35.5,
+            "max": 36.1
+          },
+          {
+            "min": 37.5,
+            "max": 38
+          }
+        ],
+        "red": [
+          {
+            "max": 35.5
+          },
+          {
+            "min": 38
+          }
+        ]
+      },
+      "actions": {
+        "green": "PLACEHOLDER: Within expected range.",
+        "amber": "PLACEHOLDER: Re-measure in 1 hour. Note any symptoms.",
+        "red": "PLACEHOLDER: Possible fever or hypothermia. Contact the flight surgeon and follow the illness procedure."
+      },
+      "sources": [
+        {
+          "title": "TODO: add source"
+        }
+      ],
+      "input": {
+        "min": 30,
+        "max": 43,
+        "step": 0.1
+      }
+    },
+    {
+      "id": "sleep_hours",
+      "name": "Sleep duration",
+      "unit": "h",
+      "howToMeasureInSpace": "PLACEHOLDER: Hours slept in the crew quarters sleep period (wearable or self-report).",
+      "bodySystem": "sleep",
+      "rangesStatus": "TODO-verify",
+      "ranges": {
+        "green": [
+          {
+            "min": 7,
+            "max": 9.5
+          }
+        ],
+        "amber": [
+          {
+            "min": 5.5,
+            "max": 7
+          },
+          {
+            "min": 9.5,
+            "max": 11
+          }
+        ],
+        "red": [
+          {
+            "max": 5.5
+          },
+          {
+            "min": 11
+          }
+        ]
+      },
+      "actions": {
+        "green": "PLACEHOLDER: Good sleep. Keep your schedule consistent.",
+        "amber": "PLACEHOLDER: Dim lights before bed, use eye mask and earplugs, and avoid screens.",
+        "red": "PLACEHOLDER: Significant sleep loss. Tell the flight surgeon; review workload and fatigue risk."
+      },
+      "sources": [
+        {
+          "title": "TODO: add source"
+        }
+      ],
+      "input": {
+        "min": 0,
+        "max": 16,
+        "step": 0.25
+      }
+    },
+    {
+      "id": "mood",
+      "name": "Mood (self-rated)",
+      "unit": "/5",
+      "howToMeasureInSpace": "PLACEHOLDER: Rate your mood today from 1 (very low) to 5 (very good).",
+      "bodySystem": "mind",
+      "rangesStatus": "TODO-verify",
+      "ranges": {
+        "green": [
+          {
+            "min": 3.5,
+            "max": 5
+          }
+        ],
+        "amber": [
+          {
+            "min": 2,
+            "max": 3.5
+          }
+        ],
+        "red": [
+          {
+            "max": 2
+          }
+        ]
+      },
+      "actions": {
+        "green": "PLACEHOLDER: Doing well. Keep in touch with family and crewmates.",
+        "amber": "PLACEHOLDER: Take a break, connect with crew or family, and get some exercise.",
+        "red": "PLACEHOLDER: Talk to a crewmate and book a private conference with the behavioral health team."
+      },
+      "sources": [
+        {
+          "title": "TODO: add source"
+        }
+      ],
+      "input": {
+        "min": 1,
+        "max": 5,
+        "step": 1
+      }
+    },
+    {
+      "id": "spo2",
+      "name": "Oxygen saturation (SpO₂)",
+      "unit": "%",
+      "howToMeasureInSpace": "PLACEHOLDER: Fingertip pulse oximeter, hand still and warm.",
+      "bodySystem": "heart",
+      "rangesStatus": "TODO-verify",
+      "ranges": {
+        "green": [
+          {
+            "min": 95,
+            "max": 100
+          }
+        ],
+        "amber": [
+          {
+            "min": 92,
+            "max": 95
+          }
+        ],
+        "red": [
+          {
+            "max": 92
+          }
+        ]
+      },
+      "actions": {
+        "green": "PLACEHOLDER: Within expected range.",
+        "amber": "PLACEHOLDER: Re-measure. Check cabin CO₂ and O₂ readings.",
+        "red": "PLACEHOLDER: Re-measure immediately. If confirmed, notify the crew and the flight surgeon."
+      },
+      "sources": [
+        {
+          "title": "TODO: add source"
+        }
+      ],
+      "input": {
+        "min": 50,
+        "max": 100,
+        "step": 1
+      }
+    }
+  ],
+  "bodySystems": [
+    {
+      "id": "heart",
+      "name": "Heart & circulation",
+      "spaceflightEffects": "PLACEHOLDER: Fluids shift toward the head; the heart can lose mass and blood volume drops.",
+      "hazards": ["Altered gravity", "Isolation & confinement"],
+      "indicatorIds": ["heart_rate", "bp_systolic", "bp_diastolic", "spo2"]
+    },
+    {
+      "id": "bone",
+      "name": "Bones",
+      "spaceflightEffects": "PLACEHOLDER: Weight-bearing bones can lose roughly 1–1.5% of mass per month without countermeasures.",
+      "hazards": ["Altered gravity"],
+      "indicatorIds": []
+    },
+    {
+      "id": "muscle",
+      "name": "Muscles",
+      "spaceflightEffects": "PLACEHOLDER: Postural muscles atrophy without daily resistance exercise.",
+      "hazards": ["Altered gravity"],
+      "indicatorIds": []
+    },
+    {
+      "id": "immune",
+      "name": "Immune system",
+      "spaceflightEffects": "PLACEHOLDER: Immune function can change; latent viruses may reactivate.",
+      "hazards": ["Radiation", "Hostile/closed environment"],
+      "indicatorIds": ["temperature"]
+    },
+    {
+      "id": "eyes",
+      "name": "Eyes & vision",
+      "spaceflightEffects": "PLACEHOLDER: Spaceflight-associated neuro-ocular syndrome (SANS) can change vision.",
+      "hazards": ["Altered gravity"],
+      "indicatorIds": []
+    },
+    {
+      "id": "mind",
+      "name": "Mind & behavior",
+      "spaceflightEffects": "PLACEHOLDER: Isolation, confinement and workload affect mood, cognition and team dynamics.",
+      "hazards": ["Isolation & confinement", "Distance from Earth"],
+      "indicatorIds": ["mood"]
+    },
+    {
+      "id": "sleep",
+      "name": "Sleep & circadian rhythm",
+      "spaceflightEffects": "PLACEHOLDER: About 16 sunrises a day in low Earth orbit disrupt circadian rhythm.",
+      "hazards": ["Isolation & confinement", "Hostile/closed environment"],
+      "indicatorIds": ["sleep_hours"]
+    },
+    {
+      "id": "metabolic",
+      "name": "Metabolism & nutrition",
+      "spaceflightEffects": "PLACEHOLDER: Insulin sensitivity and appetite can change in flight.",
+      "hazards": ["Hostile/closed environment"],
+      "indicatorIds": ["glucose"]
+    }
+  ],
+  "missionProfiles": [
+    {
+      "id": "iss",
+      "name": "ISS (low Earth orbit)",
+      "description": "PLACEHOLDER: Near-continuous contact with ground and flight surgeons.",
+      "commsDelaySeconds": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    {
+      "id": "lunar",
+      "name": "Lunar (Artemis)",
+      "description": "PLACEHOLDER: About 1.3 s one-way delay; evacuation to Earth takes days.",
+      "commsDelaySeconds": {
+        "min": 1.3,
+        "max": 1.3
+      }
+    },
+    {
+      "id": "mars",
+      "name": "Mars transit / surface",
+      "description": "PLACEHOLDER: 3–22 min one-way delay; crew must act autonomously.",
+      "commsDelaySeconds": {
+        "min": 180,
+        "max": 1320
+      }
+    }
+  ]
+}
