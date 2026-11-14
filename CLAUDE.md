@@ -94,3 +94,26 @@ The mission profile is owned by `Layout` and passed to pages through `useOutletC
 ## Changelog
 
 - 2026-11-14: Initial scaffold (Claude session 1).
+
+## Person A — status
+
+Person A owns logic and data. Only Person A's sessions edit this section.
+
+- **Done:**
+  - `a/contract`: added `getSystemStatus`, `getTrend` and `getReadiness` in `src/lib/insights.ts`, with tests, plus the CI workflow (lint, build, test on PRs and main).
+- **In progress:** none.
+- **Next:**
+  1. Readiness and routine: daily measurement prompts and a better readiness score.
+  2. Edit/delete readings and data export.
+  3. Mission profile switch: risk emphasis and comms delay.
+- **Decisions and gotchas:**
+  - We keep the repo's existing layout and schema rather than the original A brief: `src/lib/types.ts`, `src/data/content.json`, `ranges` per level, and indicator ids `glucose` and `temperature`.
+  - `getStatus(indicator, value)` keeps its signature and returns `{ level, action }`.
+  - A reading counts as current for system status and readiness if it is at most 48h old (`CURRENT_WINDOW_HOURS`).
+  - Readiness: green 100, amber 50, red 0, averaged over current indicators. It is 0 when no indicator has a current reading.
+  - On Windows (`core.autocrlf=true`), `npm run format:check` flags every file for CRLF line endings. Use `npx prettier --check --end-of-line auto .` locally. Git stores LF, so CI is unaffected.
+- **Contract (for B):**
+  - Import from `src/lib/insights`. Each function takes `readings` as an optional argument, so pass `readings` from `useReadings()` to stay in sync with state.
+  - `getSystemStatus(systemId, readings?)` returns `'green' | 'amber' | 'red' | 'unknown'`.
+  - `getTrend(indicatorId, days, readings?)` returns `{ timestamp, label, value, level }[]`. Use `label` for the x-axis and `value` for the line; `level` can colour amber/red dots.
+  - `getReadiness(readings?)` returns `{ score, streak }`.
