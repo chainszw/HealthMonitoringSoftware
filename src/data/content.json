@@ -1,471 +1,515 @@
 {
-  "disclaimer": "Crew Health Console supports flight surgeons and crew self-monitoring. It does not replace a flight surgeon, medical diagnosis, or mission medical procedures. Not a medical device. Placeholder content: ranges and guidance are not yet verified.",
-  "unknownStatusAction": "No valid reading yet. Log a measurement to see a status.",
+  "meta": {
+    "version": "1.0",
+    "lastUpdated": "2026-11-14",
+    "disclaimer": "Research prototype for flight-surgeon support, not diagnosis or approved flight medical guidance. All thresholds, measurement procedures and schedules require mission medical approval. Bands use inclusive min and exclusive max; null is unbounded. Accept whole numbers for heart rate, blood pressure, glucose, SpO2 and mood; allow decimals for temperature and sleep. Reject impossible values, missing values and device errors before classification, including SpO2 outside 0-100, sleep outside 0-24 and mood outside integers 1-5. Glucose bands apply only to fasting readings. Use the worse blood-pressure status. Serious symptoms override every green or amber result. For urgent problems, alert a crewmate and use the onboard emergency protocol while contacting the flight surgeon; do not wait for an Earth reply. These indicators do not measure radiation dose or exclude radiation injury."
+  },
+  "hazards": [
+    {
+      "id": "radiation",
+      "name": "Space radiation",
+      "summary": "Radiation can damage cells and raise long-term health risks. Use mission dosimeters; normal vital signs do not prove safe exposure."
+    },
+    {
+      "id": "isolation_confinement",
+      "name": "Isolation and confinement",
+      "summary": "Limited privacy, separation from home and a small crew can strain mood, sleep and teamwork."
+    },
+    {
+      "id": "distance_from_earth",
+      "name": "Distance from Earth",
+      "summary": "Communication delays and limited resupply or evacuation make local assessment and approved onboard care essential."
+    },
+    {
+      "id": "altered_gravity",
+      "name": "Altered gravity",
+      "summary": "Changing gravity shifts body fluids and changes how the heart, blood vessels, muscles and other systems work."
+    },
+    {
+      "id": "hostile_environment",
+      "name": "Hostile and closed environment",
+      "summary": "Cabin pressure, air quality, heat, noise, lighting and microbes can affect health. Check environmental systems as well as the person."
+    }
+  ],
   "indicators": [
     {
       "id": "heart_rate",
-      "name": "Resting heart rate",
+      "name": "Heart rate",
       "unit": "bpm",
-      "howToMeasureInSpace": "PLACEHOLDER: Measure after 5 minutes of rest, restrained at your workstation, using the chest-strap or wrist monitor.",
       "bodySystem": "heart",
-      "rangesStatus": "TODO-verify",
-      "ranges": {
+      "whyItMatters": "A changing resting pulse can signal strain, illness, dehydration or an abnormal heart rhythm.",
+      "spaceflightEffect": "Fluid shifts and reduced heart conditioning can change pulse. Stress, poor sleep and cabin heat can also affect it.",
+      "howToMeasure": [
+        "Stop exercise and rest quietly before measuring.",
+        "Secure yourself in the approved restraint. Keep your arm relaxed and still.",
+        "Use the mission-approved monitor. Wait for a stable signal.",
+        "If checking manually, feel the wrist pulse with two fingers. Count for 30 seconds and double it.",
+        "Record symptoms, recent exercise and whether the pulse feels uneven."
+      ],
+      "hazards": [
+        "altered_gravity",
+        "isolation_confinement",
+        "hostile_environment",
+        "distance_from_earth"
+      ],
+      "bands": [
+        { "status": "red", "min": null, "max": 41, "label": "Very low resting pulse" },
+        { "status": "amber", "min": 41, "max": 60, "label": "Low; check personal baseline" },
+        { "status": "green", "min": 60, "max": 101, "label": "Usual adult resting range" },
+        { "status": "amber", "min": 101, "max": 131, "label": "High resting pulse" },
+        { "status": "red", "min": 131, "max": null, "label": "Very high resting pulse" }
+      ],
+      "actions": {
         "green": [
-          {
-            "min": 50,
-            "max": 90
-          }
+          "Log the reading and compare it with your usual resting pulse.",
+          "Report symptoms even if the number is green."
         ],
         "amber": [
-          {
-            "min": 40,
-            "max": 50
-          },
-          {
-            "min": 90,
-            "max": 110
-          }
+          "Rest, check the sensor and repeat the reading.",
+          "Flag a persistent change or an uneven pulse to the flight surgeon."
         ],
         "red": [
-          {
-            "max": 40
-          },
-          {
-            "min": 110
-          }
+          "Stop exertion and alert a crewmate.",
+          "Contact the flight surgeon now; use the onboard protocol if unwell."
         ]
       },
-      "actions": {
-        "green": "PLACEHOLDER: Within expected range. Keep up your exercise schedule.",
-        "amber": "PLACEHOLDER: Re-measure after 10 minutes of rest. Note caffeine, exercise, or stress.",
-        "red": "PLACEHOLDER: Re-measure now. If confirmed, contact the flight surgeon at the next opportunity."
-      },
-      "sources": [
-        {
-          "title": "TODO: add source (e.g. NASA Human Research Program)"
-        }
-      ],
-      "input": {
-        "min": 20,
-        "max": 220,
-        "step": 1
-      }
+      "escalation": "Contact the flight surgeon for a confirmed red result or persistent unexplained amber result. Chest pain, fainting or breathing difficulty needs immediate onboard help at any pulse.",
+      "measureFrequency": "Proposed: daily at a consistent resting time, and when symptoms occur.",
+      "needsReview": true,
+      "reviewNote": "AHA supports 60-100 bpm at rest and notes lower athletic baselines. NEWS2 assigns its highest single-parameter score at <=40 or >=131 bpm. Combining these into colors is a proposed rule, not validated astronaut triage. Personalize before use. The restraint step and schedule are proposed microgravity adaptations.",
+      "sources": ["aha_pulse", "rcp_news2", "nasa_hazards", "csa_vascular"]
     },
     {
       "id": "bp_systolic",
-      "name": "Blood pressure (systolic)",
+      "name": "Systolic blood pressure",
       "unit": "mmHg",
-      "howToMeasureInSpace": "PLACEHOLDER: Seated and restrained, cuff on upper arm at heart level, after 5 minutes of rest.",
       "bodySystem": "heart",
-      "rangesStatus": "TODO-verify",
-      "ranges": {
+      "whyItMatters": "This is the pressure when the heart pumps. Very low or high readings can signal a circulation problem.",
+      "spaceflightEffect": "Fluid shifts and heart changes can alter pressure. Returning to gravity can make pressure control harder.",
+      "howToMeasure": [
+        "Use the approved upper-arm monitor with the correct cuff size.",
+        "Avoid exercise and caffeine for 30 minutes. Rest quietly for 5 minutes.",
+        "Secure your body and support your bare arm in the mission-approved position. Do not talk.",
+        "In microgravity, use the same restraint and arm position each time; do not try to plant your feet.",
+        "Take two readings one minute apart. Save both systolic and diastolic values from each reading."
+      ],
+      "hazards": [
+        "altered_gravity",
+        "hostile_environment",
+        "distance_from_earth"
+      ],
+      "bands": [
+        { "status": "red", "min": null, "max": 91, "label": "Low pressure; urgent review" },
+        { "status": "amber", "min": 91, "max": 101, "label": "Below usual reference range" },
+        { "status": "green", "min": 101, "max": 120, "label": "Within selected resting range" },
+        { "status": "amber", "min": 120, "max": 181, "label": "Elevated or high pressure" },
+        { "status": "red", "min": 181, "max": null, "label": "Severely high pressure" }
+      ],
+      "actions": {
         "green": [
-          {
-            "min": 90,
-            "max": 129
-          }
+          "Log both pressure numbers and compare them with your baseline.",
+          "Use the more concerning status from the two numbers."
         ],
         "amber": [
-          {
-            "min": 80,
-            "max": 90
-          },
-          {
-            "min": 129,
-            "max": 149
-          }
+          "Check cuff fit and repeat after quiet rest.",
+          "Send persistent abnormal readings to the flight surgeon."
         ],
         "red": [
-          {
-            "max": 80
-          },
-          {
-            "min": 149
-          }
+          "Alert a crewmate and contact the flight surgeon now.",
+          "If stable, recheck promptly. Symptoms need immediate onboard care."
         ]
       },
-      "actions": {
-        "green": "PLACEHOLDER: Within expected range.",
-        "amber": "PLACEHOLDER: Re-measure in 15 minutes. Check hydration and fluid intake.",
-        "red": "PLACEHOLDER: Re-measure now. If confirmed, contact the flight surgeon."
-      },
-      "sources": [
-        {
-          "title": "TODO: add source"
-        }
-      ],
-      "input": {
-        "min": 50,
-        "max": 250,
-        "step": 1
-      }
+      "escalation": "A confirmed red result needs immediate flight-surgeon contact. Chest pain, fainting, breathlessness, new weakness, speech trouble or vision change needs emergency care regardless of pressure.",
+      "measureFrequency": "Proposed: daily at a consistent resting time; additional checks under the medical plan.",
+      "needsReview": true,
+      "reviewNote": "Low bands use NEWS2 systolic boundaries: <=90 and 91-100. High bands use AHA categories, with >180 marked red. This combined color scheme is not NEWS2 and is not astronaut-validated. AHA normal systolic pressure is <120; the narrower green range reflects the proposed low-pressure alerts. Evaluate paired readings, symptoms and baseline. Microgravity positioning and schedule require approval.",
+      "sources": ["aha_bp", "rcp_news2", "csa_vascular", "nasa_risks"]
     },
     {
       "id": "bp_diastolic",
-      "name": "Blood pressure (diastolic)",
+      "name": "Diastolic blood pressure",
       "unit": "mmHg",
-      "howToMeasureInSpace": "PLACEHOLDER: Recorded at the same time as systolic.",
       "bodySystem": "heart",
-      "rangesStatus": "TODO-verify",
-      "ranges": {
+      "whyItMatters": "This is the pressure between heartbeats. Read it with systolic pressure to judge changes in circulation.",
+      "spaceflightEffect": "Changes in blood volume and blood-vessel control can change the lower pressure number during and after flight.",
+      "howToMeasure": [
+        "Use the same cuff measurement as systolic pressure; do not measure this separately.",
+        "Rest quietly and secure your body and arm in the approved position.",
+        "Read the lower number, usually marked DIA.",
+        "Save both readings from the paired checks and note any symptoms."
+      ],
+      "hazards": [
+        "altered_gravity",
+        "hostile_environment",
+        "distance_from_earth"
+      ],
+      "bands": [
+        { "status": "amber", "min": null, "max": 60, "label": "Low; assess symptoms and baseline" },
+        { "status": "green", "min": 60, "max": 80, "label": "Usual adult reference range" },
+        { "status": "amber", "min": 80, "max": 121, "label": "High pressure" },
+        { "status": "red", "min": 121, "max": null, "label": "Severely high pressure" }
+      ],
+      "actions": {
         "green": [
-          {
-            "min": 60,
-            "max": 84
-          }
+          "Log this with systolic pressure.",
+          "Follow the more concerning of the two pressure statuses."
         ],
         "amber": [
-          {
-            "min": 50,
-            "max": 60
-          },
-          {
-            "min": 84,
-            "max": 94
-          }
+          "Repeat after rest and check cuff placement.",
+          "Report persistent low or high readings, especially with symptoms."
         ],
         "red": [
-          {
-            "max": 50
-          },
-          {
-            "min": 94
-          }
+          "Contact the flight surgeon now and alert a crewmate.",
+          "Use the onboard emergency protocol if symptoms are present."
         ]
       },
-      "actions": {
-        "green": "PLACEHOLDER: Within expected range.",
-        "amber": "PLACEHOLDER: Re-measure in 15 minutes.",
-        "red": "PLACEHOLDER: Re-measure now. If confirmed, contact the flight surgeon."
-      },
-      "sources": [
-        {
-          "title": "TODO: add source"
-        }
-      ],
-      "input": {
-        "min": 30,
-        "max": 150,
-        "step": 1
-      }
+      "escalation": "Confirmed diastolic pressure above 120 needs immediate contact. Low pressure with fainting, confusion or chest pain is urgent even though its numeric band is amber.",
+      "measureFrequency": "Whenever systolic blood pressure is measured.",
+      "needsReview": true,
+      "reviewNote": "AHA supports <80 as normal and >120 as severely high. Below 60 is a common low-pressure reference, but no universal isolated low-diastolic emergency cutoff was established. No unsupported lower red cutoff is invented; symptoms and systolic status must override amber. Whole-number inputs are required.",
+      "sources": ["aha_bp", "medline_bp", "csa_vascular"]
     },
     {
-      "id": "glucose",
-      "name": "Blood glucose (fasting)",
+      "id": "blood_glucose",
+      "name": "Fasting blood glucose",
       "unit": "mg/dL",
-      "howToMeasureInSpace": "PLACEHOLDER: Fingerstick with onboard glucometer before breakfast.",
       "bodySystem": "metabolic",
-      "rangesStatus": "TODO-verify",
-      "ranges": {
+      "whyItMatters": "Too little blood sugar can quickly impair thinking. Persistently high fasting sugar needs medical assessment.",
+      "spaceflightEffect": "Spaceflight can reduce the body's response to insulin. Activity, food, sleep and stress also affect blood sugar.",
+      "howToMeasure": [
+        "Use these bands only for a fasting check after at least 8 hours without calories, if medically approved.",
+        "For symptoms, measure immediately without waiting to fast; flag the reading for clinical interpretation.",
+        "Secure the meter, strip, wipes and sharps container before opening supplies.",
+        "Clean and fully dry your hands. Use the approved single-use lancet and meter procedure.",
+        "Keep the blood drop contained at the fingertip. Apply it to the strip and dispose of sharps immediately.",
+        "Record the result, fasting status, symptoms and relevant medicines."
+      ],
+      "hazards": [
+        "altered_gravity",
+        "isolation_confinement",
+        "distance_from_earth"
+      ],
+      "bands": [
+        { "status": "red", "min": null, "max": 55, "label": "Severely low glucose" },
+        { "status": "amber", "min": 55, "max": 70, "label": "Low; treat promptly" },
+        { "status": "green", "min": 70, "max": 100, "label": "Usual fasting range" },
+        { "status": "amber", "min": 100, "max": 126, "label": "Raised fasting glucose" },
+        { "status": "amber", "min": 126, "max": 300, "label": "High; prompt medical assessment" },
+        { "status": "red", "min": 300, "max": null, "label": "Very high glucose" }
+      ],
+      "actions": {
         "green": [
-          {
-            "min": 70,
-            "max": 99
-          }
+          "Log the result with fasting status.",
+          "Keep to the approved meal and exercise plan."
         ],
         "amber": [
-          {
-            "min": 55,
-            "max": 70
-          },
-          {
-            "min": 99,
-            "max": 125
-          }
+          "Below 70: if awake and able to swallow, follow the approved low-glucose treatment now.",
+          "At 100 or above fasting: report the result; at 126 or above, seek prompt medical assessment.",
+          "Do not change medicines or take insulin without the approved medical plan."
         ],
         "red": [
-          {
-            "max": 55
-          },
-          {
-            "min": 125
-          }
+          "Alert a crewmate and contact the flight surgeon immediately.",
+          "Follow the onboard glucose emergency plan. Give nothing by mouth if swallowing is unsafe."
         ]
       },
-      "actions": {
-        "green": "PLACEHOLDER: Within expected range.",
-        "amber": "PLACEHOLDER: Review recent meals and re-test tomorrow morning.",
-        "red": "PLACEHOLDER: If low, take fast-acting carbohydrate and re-test in 15 minutes. Contact the flight surgeon."
-      },
-      "sources": [
-        {
-          "title": "TODO: add source"
-        }
-      ],
-      "input": {
-        "min": 20,
-        "max": 400,
-        "step": 1
-      }
+      "escalation": "Severe low glucose, confusion, seizure or collapse needs immediate onboard care. Confirmed glucose >=300, or high glucose with vomiting, abdominal pain or abnormal breathing, needs urgent assessment.",
+      "measureFrequency": "Only on the flight surgeon's screening plan, or promptly when symptoms suggest a glucose problem.",
+      "needsReview": true,
+      "reviewNote": "CDC supports <70 as low, <55 as severely low, and fasting thresholds of 100 and 126. CDC's persistent >=300 emergency advice concerns diabetes; applying it to astronaut screening is provisional. A single finger-stick cannot diagnose diabetes. Fasting high bands must not classify post-meal readings. Microgravity handling requires the approved biohazard procedure.",
+      "sources": ["cdc_glucose", "cdc_low_glucose", "cdc_dka", "csa_vascular"]
     },
     {
-      "id": "temperature",
+      "id": "body_temp",
       "name": "Body temperature",
       "unit": "°C",
-      "howToMeasureInSpace": "PLACEHOLDER: Oral or forehead thermometer. Cabin temperature affects readings; note it.",
       "bodySystem": "immune",
-      "rangesStatus": "TODO-verify",
-      "ranges": {
+      "whyItMatters": "Temperature changes can signal illness, excessive heat or dangerous cooling. Symptoms and measurement method matter.",
+      "spaceflightEffect": "Heat loss changes in microgravity. Core temperature may rise during flight and climb faster during exercise.",
+      "howToMeasure": [
+        "Use the approved thermometer and the same body site each time.",
+        "For a routine check, rest after exercise and follow device instructions about recent food or drink.",
+        "Secure yourself and the thermometer. Keep the probe steady until the reading completes.",
+        "Record the body site, time, symptoms and recent exercise.",
+        "Do not treat a skin-temperature sensor as a core-temperature measurement."
+      ],
+      "hazards": [
+        "altered_gravity",
+        "hostile_environment",
+        "distance_from_earth"
+      ],
+      "bands": [
+        { "status": "red", "min": null, "max": 35, "label": "Dangerously low temperature" },
+        { "status": "amber", "min": 35, "max": 36, "label": "Low; check method and symptoms" },
+        { "status": "green", "min": 36, "max": 38, "label": "Within selected resting range" },
+        { "status": "amber", "min": 38, "max": 40, "label": "Raised temperature" },
+        { "status": "red", "min": 40, "max": null, "label": "Very high temperature" }
+      ],
+      "actions": {
         "green": [
-          {
-            "min": 36.1,
-            "max": 37.5
-          }
+          "Log the reading and measurement site.",
+          "Report feeling unwell even with a green reading."
         ],
         "amber": [
-          {
-            "min": 35.5,
-            "max": 36.1
-          },
-          {
-            "min": 37.5,
-            "max": 38
-          }
+          "Stop exertion, check the measurement and report a persistent change.",
+          "Check cabin conditions and follow the medical plan."
         ],
         "red": [
-          {
-            "max": 35.5
-          },
-          {
-            "min": 38
-          }
+          "Alert a crewmate and contact the flight surgeon now.",
+          "Use the approved warming or cooling protocol; do not wait for an Earth reply."
         ]
       },
-      "actions": {
-        "green": "PLACEHOLDER: Within expected range.",
-        "amber": "PLACEHOLDER: Re-measure in 1 hour. Note any symptoms.",
-        "red": "PLACEHOLDER: Possible fever or hypothermia. Contact the flight surgeon and follow the illness procedure."
-      },
-      "sources": [
-        {
-          "title": "TODO: add source"
-        }
-      ],
-      "input": {
-        "min": 30,
-        "max": 43,
-        "step": 0.1
-      }
-    },
-    {
-      "id": "sleep_hours",
-      "name": "Sleep duration",
-      "unit": "h",
-      "howToMeasureInSpace": "PLACEHOLDER: Hours slept in the crew quarters sleep period (wearable or self-report).",
-      "bodySystem": "sleep",
-      "rangesStatus": "TODO-verify",
-      "ranges": {
-        "green": [
-          {
-            "min": 7,
-            "max": 9.5
-          }
-        ],
-        "amber": [
-          {
-            "min": 5.5,
-            "max": 7
-          },
-          {
-            "min": 9.5,
-            "max": 11
-          }
-        ],
-        "red": [
-          {
-            "max": 5.5
-          },
-          {
-            "min": 11
-          }
-        ]
-      },
-      "actions": {
-        "green": "PLACEHOLDER: Good sleep. Keep your schedule consistent.",
-        "amber": "PLACEHOLDER: Dim lights before bed, use eye mask and earplugs, and avoid screens.",
-        "red": "PLACEHOLDER: Significant sleep loss. Tell the flight surgeon; review workload and fatigue risk."
-      },
-      "sources": [
-        {
-          "title": "TODO: add source"
-        }
-      ],
-      "input": {
-        "min": 0,
-        "max": 16,
-        "step": 0.25
-      }
-    },
-    {
-      "id": "mood",
-      "name": "Mood (self-rated)",
-      "unit": "/5",
-      "howToMeasureInSpace": "PLACEHOLDER: Rate your mood today from 1 (very low) to 5 (very good).",
-      "bodySystem": "mind",
-      "rangesStatus": "TODO-verify",
-      "ranges": {
-        "green": [
-          {
-            "min": 3.5,
-            "max": 5
-          }
-        ],
-        "amber": [
-          {
-            "min": 2,
-            "max": 3.5
-          }
-        ],
-        "red": [
-          {
-            "max": 2
-          }
-        ]
-      },
-      "actions": {
-        "green": "PLACEHOLDER: Doing well. Keep in touch with family and crewmates.",
-        "amber": "PLACEHOLDER: Take a break, connect with crew or family, and get some exercise.",
-        "red": "PLACEHOLDER: Talk to a crewmate and book a private conference with the behavioral health team."
-      },
-      "sources": [
-        {
-          "title": "TODO: add source"
-        }
-      ],
-      "input": {
-        "min": 1,
-        "max": 5,
-        "step": 1
-      }
+      "escalation": "A red reading, confusion, collapse or suspected heat illness needs immediate care. Report persistent temperature >=38 or a new low reading with illness symptoms.",
+      "measureFrequency": "Proposed: daily at the same resting time and whenever fever or heat illness is suspected.",
+      "needsReview": true,
+      "reviewNote": "Below 35 is the NHS hypothermia threshold. Severe heat illness commonly involves core temperature above 40 and neurological symptoms; >=40 is a conservative proposed alert. The 36-38 green window and color mapping require review by measurement site. NASA reports in-flight temperature elevation, so Earth fever references may conflict with personal flight baselines.",
+      "sources": ["nasa_temperature", "nhs_hypothermia", "erc_first_aid", "rcp_news2"]
     },
     {
       "id": "spo2",
-      "name": "Oxygen saturation (SpO₂)",
+      "name": "Blood oxygen saturation",
       "unit": "%",
-      "howToMeasureInSpace": "PLACEHOLDER: Fingertip pulse oximeter, hand still and warm.",
-      "bodySystem": "heart",
-      "rangesStatus": "TODO-verify",
-      "ranges": {
+      "bodySystem": "respiratory",
+      "whyItMatters": "Low blood oxygen can threaten thinking and organ function. A normal reading does not rule out a breathing problem.",
+      "spaceflightEffect": "Cabin oxygen and pressure affect oxygen supply. Air contaminants can cause illness that an ordinary oximeter may miss.",
+      "howToMeasure": [
+        "Rest and use the mission-approved pulse oximeter.",
+        "Warm a cold hand. Remove nail coverings if the device instructions require it.",
+        "Secure yourself, support the hand and keep the sensor still.",
+        "Wait for a stable reading and a good signal indicator.",
+        "Record symptoms and cabin conditions. If unexpected, recheck another finger without delaying urgent care."
+      ],
+      "hazards": [
+        "hostile_environment",
+        "distance_from_earth"
+      ],
+      "bands": [
+        { "status": "red", "min": null, "max": 92, "label": "Low oxygen; urgent assessment" },
+        { "status": "amber", "min": 92, "max": 96, "label": "Below selected reference range" },
+        { "status": "green", "min": 96, "max": null, "label": "Within selected reference range" }
+      ],
+      "actions": {
         "green": [
-          {
-            "min": 95,
-            "max": 100
-          }
+          "Log the reading. Symptoms still need attention.",
+          "Do not use SpO2 to judge radiation exposure or carbon dioxide safety."
         ],
         "amber": [
-          {
-            "min": 92,
-            "max": 95
-          }
+          "Check signal quality and repeat while resting.",
+          "Report a persistent low reading and check cabin alarms."
         ],
         "red": [
-          {
-            "max": 92
-          }
+          "Alert a crewmate and contact the flight surgeon immediately.",
+          "Follow the onboard breathing and cabin emergency protocols."
         ]
       },
-      "actions": {
-        "green": "PLACEHOLDER: Within expected range.",
-        "amber": "PLACEHOLDER: Re-measure. Check cabin CO₂ and O₂ readings.",
-        "red": "PLACEHOLDER: Re-measure immediately. If confirmed, notify the crew and the flight surgeon."
-      },
-      "sources": [
-        {
-          "title": "TODO: add source"
-        }
+      "escalation": "A confirmed red reading or new breathing difficulty, confusion, collapse or blue-grey lips needs immediate assessment. Do not delay care to obtain a better number.",
+      "measureFrequency": "Proposed: daily at rest, during relevant symptoms, and as directed after a cabin event.",
+      "needsReview": true,
+      "reviewNote": "Bands use NEWS2 oxygen scale 1 boundaries: <=91 highest score, 92-95 abnormal, >=96 zero score. Colors are a proposed simplification, not NEWS2 scoring or astronaut limits. Other Earth protocols use different thresholds. Cabin pressure, oxygen settings, baseline and device performance require review. Reject values above 100; no high-oxygen toxicity threshold can be inferred from SpO2.",
+      "sources": ["rcp_news2", "fda_oximetry", "nasa_hazards"]
+    },
+    {
+      "id": "sleep_hours",
+      "name": "Daily sleep duration",
+      "unit": "hours per day",
+      "bodySystem": "mind",
+      "whyItMatters": "Too little sleep weakens attention, judgment and mood. Time in a sleep station is not the same as time asleep.",
+      "spaceflightEffect": "Schedules, lighting, noise and stress can disrupt sleep. Astronauts may sleep less than their planned sleep opportunity.",
+      "howToMeasure": [
+        "After waking, estimate total time actually asleep over the last 24 hours.",
+        "Include naps and subtract periods spent awake.",
+        "Use the approved wearable as a supporting estimate, not a perfect measurement.",
+        "Record sleep quality, unusual sleepiness and any sleep medicine."
       ],
-      "input": {
-        "min": 50,
-        "max": 100,
-        "step": 1
-      }
+      "hazards": [
+        "isolation_confinement",
+        "hostile_environment",
+        "distance_from_earth"
+      ],
+      "bands": [
+        { "status": "red", "min": null, "max": 6, "label": "Short sleep; check fitness for duty" },
+        { "status": "amber", "min": 6, "max": 7, "label": "Below adult sleep recommendation" },
+        { "status": "green", "min": 7, "max": 9, "label": "Within selected sleep target" },
+        { "status": "amber", "min": 9, "max": null, "label": "Long sleep; check recovery and symptoms" }
+      ],
+      "actions": {
+        "green": [
+          "Protect the next sleep period and keep a regular schedule.",
+          "Report sleepiness even if the total is green."
+        ],
+        "amber": [
+          "Check sleep quality, workload, lighting and noise.",
+          "Flag repeated changes or daytime sleepiness to the flight surgeon."
+        ],
+        "red": [
+          "Tell the crew lead and flight surgeon before safety-critical work.",
+          "Use the approved fatigue plan and arrange a protected recovery opportunity."
+        ]
+      },
+      "escalation": "Flag short sleep before safety-critical duties. Uncontrolled dozing, repeated poor sleep or inability to stay alert needs prompt medical and operational review. Red is a fatigue alert, not an emergency diagnosis.",
+      "measureFrequency": "Daily after the main sleep period, covering the previous 24 hours.",
+      "needsReview": true,
+      "reviewNote": "Astronaut research links short sleep, including <6 hours, with impaired performance. NASA material supports adequate sleep opportunity and warns about restriction below 7 hours. The 6, 7 and 9-hour color boundaries are proposed operational rules, not validated clinical cutoffs. Long sleep may be normal recovery; no unsupported high-duration red cutoff is assigned.",
+      "sources": ["iss_sleep_study", "nasa_sleep", "nasa_hazards"]
+    },
+    {
+      "id": "mood",
+      "name": "Mood check-in",
+      "unit": "self-rating 1-5",
+      "bodySystem": "mind",
+      "whyItMatters": "A private mood check can help identify distress early and support safe teamwork. One score cannot diagnose a mental health condition.",
+      "spaceflightEffect": "Isolation, confinement, workload and delayed contact with home can strain mood. Poor sleep can make coping harder.",
+      "howToMeasure": [
+        "Choose a private moment and consider your mood over the last day.",
+        "Use the same anchors: 1 very low, 2 low, 3 neutral, 4 good, 5 very good.",
+        "Choose one whole number. Do not average away a period of severe distress.",
+        "Add a private note about sleep, stress or difficulty doing your usual tasks.",
+        "Report feeling unsafe directly; do not rely on this score to communicate it."
+      ],
+      "hazards": [
+        "isolation_confinement",
+        "distance_from_earth",
+        "hostile_environment"
+      ],
+      "bands": [
+        { "status": "red", "min": null, "max": 2, "label": "Very low; reach out now" },
+        { "status": "amber", "min": 2, "max": 3, "label": "Low; arrange a check-in" },
+        { "status": "green", "min": 3, "max": null, "label": "Neutral or positive self-rating" }
+      ],
+      "actions": {
+        "green": [
+          "Keep normal sleep, social contact and private check-ins.",
+          "Report distress or unusual behavior even with a high score."
+        ],
+        "amber": [
+          "Arrange a private check-in with the flight surgeon or behavioral health support.",
+          "Tell a trusted crewmate if stress is affecting your work."
+        ],
+        "red": [
+          "Contact the flight surgeon or behavioral health support now.",
+          "If you feel unsafe, stay with a trusted crewmate and use the onboard safety protocol."
+        ]
+      },
+      "escalation": "Feeling unsafe, thoughts of self-harm, severe confusion or inability to function needs immediate crew and medical support at any score. Persistent low mood or unusually elevated mood with little sleep also needs review.",
+      "measureFrequency": "Proposed: one private daily check-in, with extra support whenever requested.",
+      "needsReview": true,
+      "reviewNote": "The requested 1-5 scale has no established astronaut clinical thresholds in the reviewed sources. Its anchors and 1=red, 2=amber, 3-5=green mapping are explicitly proposed interface rules, not evidence-based diagnostic numbers. Clinical validation, privacy controls and symptom overrides are required before operational use.",
+      "sources": ["nasa_risks", "nasa_hazards", "iss_sleep_study"]
     }
   ],
-  "bodySystems": [
+  "sources": [
     {
-      "id": "heart",
-      "name": "Heart & circulation",
-      "spaceflightEffects": "PLACEHOLDER: Fluids shift toward the head; the heart can lose mass and blood volume drops.",
-      "hazards": ["Altered gravity", "Isolation & confinement"],
-      "indicatorIds": ["heart_rate", "bp_systolic", "bp_diastolic", "spo2"]
+      "id": "nasa_hazards",
+      "title": "5 Hazards of Human Spaceflight",
+      "org": "NASA",
+      "url": "https://www.nasa.gov/hrp/hazards/"
     },
     {
-      "id": "bone",
-      "name": "Bones",
-      "spaceflightEffects": "PLACEHOLDER: Weight-bearing bones can lose roughly 1–1.5% of mass per month without countermeasures.",
-      "hazards": ["Altered gravity"],
-      "indicatorIds": []
+      "id": "nasa_risks",
+      "title": "Risks of Human Spaceflight",
+      "org": "NASA",
+      "url": "https://www.nasa.gov/hrp/risks/"
     },
     {
-      "id": "muscle",
-      "name": "Muscles",
-      "spaceflightEffects": "PLACEHOLDER: Postural muscles atrophy without daily resistance exercise.",
-      "hazards": ["Altered gravity"],
-      "indicatorIds": []
+      "id": "nasa_research",
+      "title": "Ongoing HRP Research",
+      "org": "NASA",
+      "url": "https://www.nasa.gov/hrp/ongoing-hrp-research/"
     },
     {
-      "id": "immune",
-      "name": "Immune system",
-      "spaceflightEffects": "PLACEHOLDER: Immune function can change; latent viruses may reactivate.",
-      "hazards": ["Radiation", "Hostile/closed environment"],
-      "indicatorIds": ["temperature"]
+      "id": "csa_radiation",
+      "title": "Monitoring radiation for astronaut health",
+      "org": "Canadian Space Agency",
+      "url": "https://www.asc-csa.gc.ca/eng/news/articles/2026/2026-02-26-monitoring-radiation-astronaut-health.asp"
     },
     {
-      "id": "eyes",
-      "name": "Eyes & vision",
-      "spaceflightEffects": "PLACEHOLDER: Spaceflight-associated neuro-ocular syndrome (SANS) can change vision.",
-      "hazards": ["Altered gravity"],
-      "indicatorIds": []
+      "id": "csa_space_science",
+      "title": "Why do we conduct science experiments in space?",
+      "org": "Canadian Space Agency",
+      "url": "https://www.asc-csa.gc.ca/eng/iss/science/why-do-we-conduct-science-experiments-in-space.asp"
     },
     {
-      "id": "mind",
-      "name": "Mind & behavior",
-      "spaceflightEffects": "PLACEHOLDER: Isolation, confinement and workload affect mood, cognition and team dynamics.",
-      "hazards": ["Isolation & confinement", "Distance from Earth"],
-      "indicatorIds": ["mood"]
+      "id": "csa_vascular",
+      "title": "The Vascular series: Studying heart health in space",
+      "org": "Canadian Space Agency",
+      "url": "https://www.asc-csa.gc.ca/eng/sciences/vascular.asp"
     },
     {
-      "id": "sleep",
-      "name": "Sleep & circadian rhythm",
-      "spaceflightEffects": "PLACEHOLDER: About 16 sunrises a day in low Earth orbit disrupt circadian rhythm.",
-      "hazards": ["Isolation & confinement", "Hostile/closed environment"],
-      "indicatorIds": ["sleep_hours"]
+      "id": "aha_pulse",
+      "title": "Target Heart Rates Chart",
+      "org": "American Heart Association",
+      "url": "https://www.heart.org/en/healthy-living/exercise-and-physical-activity/fitness-basics/target-heart-rates"
     },
     {
-      "id": "metabolic",
-      "name": "Metabolism & nutrition",
-      "spaceflightEffects": "PLACEHOLDER: Insulin sensitivity and appetite can change in flight.",
-      "hazards": ["Hostile/closed environment"],
-      "indicatorIds": ["glucose"]
-    }
-  ],
-  "missionProfiles": [
-    {
-      "id": "iss",
-      "name": "ISS (low Earth orbit)",
-      "description": "PLACEHOLDER: Near-continuous contact with ground and flight surgeons.",
-      "commsDelaySeconds": {
-        "min": 0,
-        "max": 1
-      }
+      "id": "aha_bp",
+      "title": "Home Blood Pressure Monitoring",
+      "org": "American Heart Association",
+      "url": "https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings/monitoring-your-blood-pressure-at-home"
     },
     {
-      "id": "lunar",
-      "name": "Lunar (Artemis)",
-      "description": "PLACEHOLDER: About 1.3 s one-way delay; evacuation to Earth takes days.",
-      "commsDelaySeconds": {
-        "min": 1.3,
-        "max": 1.3
-      }
+      "id": "medline_bp",
+      "title": "Measuring Blood Pressure",
+      "org": "MedlinePlus, U.S. National Library of Medicine",
+      "url": "https://www.medlineplus.gov/lab-tests/measuring-blood-pressure/"
     },
     {
-      "id": "mars",
-      "name": "Mars transit / surface",
-      "description": "PLACEHOLDER: 3–22 min one-way delay; crew must act autonomously.",
-      "commsDelaySeconds": {
-        "min": 180,
-        "max": 1320
-      }
+      "id": "rcp_news2",
+      "title": "National Early Warning Score 2: Observation Chart",
+      "org": "Royal College of Physicians",
+      "url": "https://www.rcp.ac.uk/media/eczf5mvm/news2-chart-3_news-observation-chart_2022_0_0.pdf"
+    },
+    {
+      "id": "cdc_glucose",
+      "title": "Diabetes Testing",
+      "org": "Centers for Disease Control and Prevention",
+      "url": "https://www.cdc.gov/diabetes/diabetes-testing/index.html"
+    },
+    {
+      "id": "cdc_low_glucose",
+      "title": "Low Blood Sugar (Hypoglycemia)",
+      "org": "Centers for Disease Control and Prevention",
+      "url": "https://www.cdc.gov/diabetes/about/low-blood-sugar-hypoglycemia.html"
+    },
+    {
+      "id": "cdc_dka",
+      "title": "Diabetic Ketoacidosis",
+      "org": "Centers for Disease Control and Prevention",
+      "url": "https://www.cdc.gov/diabetes/about/diabetic-ketoacidosis.html"
+    },
+    {
+      "id": "nasa_temperature",
+      "title": "Heat Safety in Space Keeps Infants and Patients Safe on Earth",
+      "org": "NASA",
+      "url": "https://www.nasa.gov/missions/station/heat-safety-in-space-keeps-infants-and-patients-safe-on-earth/"
+    },
+    {
+      "id": "nhs_hypothermia",
+      "title": "Hypothermia",
+      "org": "NHS",
+      "url": "https://www.nhs.uk/conditions/hypothermia/"
+    },
+    {
+      "id": "erc_first_aid",
+      "title": "European Resuscitation Council Guidelines 2025: First Aid",
+      "org": "European Resuscitation Council",
+      "url": "https://www.erc.edu/media/i2vllpae/gl2025-12-faid-e.pdf"
+    },
+    {
+      "id": "fda_oximetry",
+      "title": "Pulse Oximeters",
+      "org": "U.S. Food and Drug Administration",
+      "url": "https://www.fda.gov/medical-devices/products-and-medical-procedures/pulse-oximeters"
+    },
+    {
+      "id": "nasa_sleep",
+      "title": "NASA-STD-3001 Technical Brief: Sleep Accommodations",
+      "org": "NASA",
+      "url": "https://www.nasa.gov/wp-content/uploads/2023/03/sleep-accomodations-technical-brief-ochmo.pdf"
+    },
+    {
+      "id": "iss_sleep_study",
+      "title": "Sleep deficiency in spaceflight is associated with degraded neurobehavioral functions and elevated stress in astronauts on six-month missions aboard the International Space Station",
+      "org": "SLEEP, peer-reviewed journal",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8919197/"
     }
   ]
 }
