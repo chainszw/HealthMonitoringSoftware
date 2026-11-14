@@ -50,16 +50,28 @@ The mission profile is owned by `Layout` and passed to pages through `useOutletC
 
 ## Schema (src/lib/types.ts)
 
-- `Indicator`: id, name, unit, howToMeasureInSpace, bodySystem, `ranges: Record<'green'|'amber'|'red', {min?,max?}[]>`,
-  `actions: Record<level, string>`, sources[], rangesStatus? ("TODO-verify" | "verified"), input? {min,max,step}
+`content.json` (C's format: `meta`, `hazards`, `bodySystems`, `missionProfiles`, `indicators` with
+`bands[]` and step arrays, `sources` by id) is converted by `normalizeContent` in `src/data/content.ts`
+into the app shape below. Components import `content`, `getIndicator` etc. from `src/data/content`.
+
+- `Indicator`: id, name, unit, howToMeasureInSpace (joined), howToMeasureSteps[], bodySystem,
+  `ranges: Record<'green'|'amber'|'red', {min?,max?,label?}[]>`, `actions: Record<level, string>` (joined),
+  actionSteps: Record<level, string[]>, sources[] {title,org?,url?}, rangesStatus ("TODO-verify" | "verified"),
+  input {min,max,step} (from `INPUT_LIMITS` in `src/lib/validation.ts`), hazards[] (names), and optional
+  whyItMatters, spaceflightEffect, escalation, measureFrequency, reviewNote
 - `Reading`: id, indicatorId, value: number, timestamp: ISO string, note?
-- `BodySystem`: id (heart|bone|muscle|immune|eyes|mind|sleep|metabolic), name, spaceflightEffects, hazards[], indicatorIds[]
+- `BodySystem`: id (heart|respiratory|bone|muscle|immune|eyes|mind|sleep|metabolic), name, spaceflightEffects,
+  hazards[] (names), indicatorIds[] (derived from each indicator's bodySystem)
 - `MissionProfile`: id (iss|lunar|mars), name, description, commsDelaySeconds {min,max} (one-way)
-- `Content`: { disclaimer, unknownStatusAction, indicators, bodySystems, missionProfiles } = shape of content.json
-- Indicator ids: heart_rate, bp_systolic, bp_diastolic, glucose, temperature, sleep_hours, mood (1–5), spo2
-- `getStatus(indicator, value, unknownAction?)` → `{ level: green|amber|red|unknown, action }`.
-  Bands are inclusive and share edges; checked green → amber → red, first match wins; outside all bands → red.
+- `Content`: { disclaimer, unknownStatusAction, hazards, indicators, bodySystems, missionProfiles }
+- Indicator ids: heart_rate, bp_systolic, bp_diastolic, blood_glucose, body_temp, spo2 (respiratory),
+  sleep_hours and mood (1–5) (both mind)
+- `getStatus(indicator, value, unknownAction?)` → `{ level: green|amber|red|unknown, action, label? }`.
+  Bands are half-open: **min inclusive, max exclusive**; checked green → amber → red, first match wins;
+  outside all bands → red.
+- `validateValue(indicator, raw)` → `{ ok: true, value } | { ok: false, error }`. Run it before saving a reading.
 - localStorage keys: `chc:v1:readings`, `chc:v1:mission`. Bump `v1` if the Reading shape changes incompatibly.
+  Old ids `glucose`/`temperature` are migrated on load.
 
 ## Conventions
 
@@ -94,6 +106,8 @@ The mission profile is owned by `Layout` and passed to pages through `useOutletC
 ## Changelog
 
 - 2026-11-14: Initial scaffold (Claude session 1).
+- 2026-11-15: A: content adapter for C's new content.json; half-open bands; `validateValue`; new ids
+  `blood_glucose`/`body_temp`; `respiratory` system; placeholder bodySystems/missionProfiles restored in content.json.
 
 ## Person A — status
 
@@ -101,14 +115,17 @@ Person A owns logic and data. Only Person A's sessions edit this section.
 
 - **Done:**
   - `a/contract`: added `getSystemStatus`, `getTrend` and `getReadiness` in `src/lib/insights.ts`, with tests, plus the CI workflow (lint, build, test on PRs and main).
+  - `a/content-adapter`: `normalizeContent` maps C's content.json format to the app types; getStatus uses half-open bands and returns the band label; `validateValue` + `INPUT_LIMITS`; seed retuned to the new bands; stored-id migration.
 - **In progress:** none.
 - **Next:**
   1. Readiness and routine: daily measurement prompts and a better readiness score.
   2. Edit/delete readings and data export.
   3. Mission profile switch: risk emphasis and comms delay.
 - **Decisions and gotchas:**
-  - We keep the repo's existing layout and schema rather than the original A brief: `src/lib/types.ts`, `src/data/content.json`, `ranges` per level, and indicator ids `glucose` and `temperature`.
-  - `getStatus(indicator, value)` keeps its signature and returns `{ level, action }`.
+  - C owns the content.json format; the app-facing types stay stable and `src/data/content.ts` adapts. If C changes the format again, update `RawContent`/`normalizeContent`, not the components.
+  - `bodySystems`, `missionProfiles` and `meta.unknownStatusAction` were missing from C's file; A restored them as PLACEHOLDER text for C to rewrite. Body-system `indicatorIds` are derived, not stored. The `sleep` system currently has no indicators (C put `sleep_hours` under `mind`).
+  - Input limits (whole numbers, SpO2 0–100, sleep 0–24, mood 1–5) follow C's meta.disclaimer; other bounds only reject impossible values.
+  - `getStatus(indicator, value)` keeps its signature and returns `{ level, action, label? }`.
   - A reading counts as current for system status and readiness if it is at most 48h old (`CURRENT_WINDOW_HOURS`).
   - Readiness: green 100, amber 50, red 0, averaged over current indicators. It is 0 when no indicator has a current reading.
   - On Windows (`core.autocrlf=true`), `npm run format:check` flags every file for CRLF line endings. Use `npx prettier --check --end-of-line auto .` locally. Git stores LF, so CI is unaffected.
@@ -117,3 +134,5 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `getSystemStatus(systemId, readings?)` returns `'green' | 'amber' | 'red' | 'unknown'`.
   - `getTrend(indicatorId, days, readings?)` returns `{ timestamp, label, value, level }[]`. Use `label` for the x-axis and `value` for the line; `level` can colour amber/red dots.
   - `getReadiness(readings?)` returns `{ score, streak }`.
+  - `validateValue(indicator, raw)` from `src/lib/validation`: call it in VitalsForm before `add()` and show `error` if not ok.
+  - New optional detail for UI: `indicator.howToMeasureSteps`, `actionSteps[level]` (render as lists), `whyItMatters`, `escalation`, `status.label`. SpO2 now belongs to the new `respiratory` system, which BodyFigure has no region for yet.

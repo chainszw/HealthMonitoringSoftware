@@ -43,13 +43,27 @@ function isReading(x: unknown): x is Reading {
   );
 }
 
+/** Indicator ids renamed in content.json; stored readings are migrated on load. */
+const RENAMED_INDICATORS: Record<string, string> = {
+  glucose: 'blood_glucose',
+  temperature: 'body_temp',
+};
+
+function migrate(readings: Reading[]): Reading[] {
+  return readings.map((r) =>
+    r.indicatorId in RENAMED_INDICATORS
+      ? { ...r, indicatorId: RENAMED_INDICATORS[r.indicatorId] }
+      : r,
+  );
+}
+
 /** Load readings. Seeds demo data on first run or if stored data is corrupt. */
 export function loadReadings(): Reading[] {
   const raw = read(READINGS_KEY);
   if (raw !== null) {
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.every(isReading)) return parsed;
+      if (Array.isArray(parsed) && parsed.every(isReading)) return migrate(parsed);
     } catch {
       /* corrupt: re-seed below */
     }
