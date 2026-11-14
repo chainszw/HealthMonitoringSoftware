@@ -3,8 +3,10 @@ import {
   fetchCrewMemberOverview,
   fetchCrewOverview,
   fetchCrewTrend,
+  fetchExport,
   fetchMe,
 } from '../../src/lib/crewApi';
+import { CSV_BOM } from '../../src/lib/exportData';
 import type { FetchLike } from '../../src/lib/sync';
 import { setupApi } from './testkit';
 
@@ -58,6 +60,24 @@ describe('flight-surgeon client calls', () => {
       ok: false,
       status: 0,
       error: 'Cannot reach the server.',
+    });
+  });
+
+  it('downloads an export file', async () => {
+    const csv = await fetchExport(API, api.tokens.surgeon, 'csv', { crewId: 'alpha' }, opts);
+    expect(csv.ok && csv.data.filename).toMatch(/^crew-health-alpha-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(csv.ok && csv.data.mimeType).toBe('text/csv; charset=utf-8');
+    expect(csv.ok && csv.data.content.startsWith(`${CSV_BOM}crew_id,`)).toBe(true);
+    expect(csv.ok && csv.data.content.split('\r\n')).toHaveLength(3);
+
+    const doc = await fetchExport(API, api.tokens.surgeon, 'json', { includeDeleted: false }, opts);
+    expect(doc.ok && JSON.parse(doc.data.content).count).toBe(1);
+
+    expect(
+      await fetchExport(API, api.tokens.alpha, 'csv', { crewId: 'bravo' }, opts),
+    ).toMatchObject({
+      ok: false,
+      status: 403,
     });
   });
 });

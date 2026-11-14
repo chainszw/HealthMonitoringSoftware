@@ -14,8 +14,8 @@ rules directly instead of copying them.
 | 2     | Crew members and roles (astronaut, flight surgeon), bearer tokens  | Done   |
 | 3     | `POST /sync` plus a sync queue behind `storage.ts` / `useReadings` | Done   |
 | 4     | Flight-surgeon endpoints: crew overview, per-crew trends           | Done   |
-| 5     | Export: `GET /export.json`, `GET /export.csv`                      | Next   |
-| 6     | Optional demo: hold sync replies for the mission's comms delay     |        |
+| 5     | Export: `GET /export.json`, `GET /export.csv`                      | Done   |
+| 6     | Optional demo: hold sync replies for the mission's comms delay     | Next   |
 | 7     | Deploy (Render or Fly.io), `VITE_API_URL` on Vercel, CORS          |        |
 
 The minimum that demos is phases 0, 1, 3 and 7. Without `VITE_API_URL` the app stays local-only.
@@ -78,6 +78,7 @@ All bodies are JSON. Errors return `{ "error": "..." }` (plus `"field"` for vali
 | PATCH  | `/readings/:id`                | Any of `{ value, timestamp, note }`; `note: null` clears it               |
 | DELETE | `/readings/:id`                | Soft delete → 204; the row is kept as a tombstone for sync                |
 | POST   | `/sync`                        | Two-way sync for offline devices (see below)                              |
+| GET    | `/export.csv`, `/export.json`  | Download readings; same filters as `/readings` (see Export below)         |
 
 Rules:
 
@@ -116,6 +117,29 @@ Each astronaut in `crew` has:
 - A reading counts as current for 48h. Deleted readings are left out.
 - `npm run crew -- demo` stamps a few readings with the current time so the demo shows Mira
   Lindqvist red, Sam Okafor amber and Alex Rivera green.
+
+## Export (phase 5)
+
+`GET /export.csv` and `GET /export.json` download readings as a file (`Content-Disposition:
+attachment`, `Cache-Control: no-store`), named like `crew-health-<crewId|all-crew>-<date>.csv`.
+
+- **Who:** astronauts export their own readings. Flight surgeons export everyone's, or one crew
+  member's with `?crewId=`.
+- **Filters:** `indicatorId`, `from`, `to` (ISO, inclusive) and `includeDeleted=true`. An unknown
+  indicator or a bad date is a 400.
+- **One row per reading:** crew id and name, reading id, indicator id, name and unit, value,
+  `status` (green/amber/red at export time) and `band` label, `measured_at`, note, `updated_at`,
+  `deleted_at`.
+- **CSV** follows RFC 4180 (CRLF, quotes where needed) and starts with a UTF-8 byte-order mark so
+  Excel shows units like °C. Text starting with `=`, `+`, `-` or `@` gets a leading apostrophe, so
+  a note can never run as a spreadsheet formula.
+- **JSON** is `{ format: 'crew-health-export', version: 1, exportedAt, exportedBy, scope, filters,
+disclaimer, count, readings }`.
+
+The same builder (`src/lib/exportData.ts`) works offline: `exportDeviceReadings(readings, 'csv',
+crew?)` returns `{ filename, mimeType, content }` for a device's own readings, with no server
+needed. A console downloads server exports with `fetchExport(apiUrl, token, format, filters)` from
+`src/lib/crewApi.ts`.
 
 ## Sync (phase 3)
 

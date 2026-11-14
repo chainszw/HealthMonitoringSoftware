@@ -9,7 +9,8 @@ own health data. Crew Health Console makes that quick and consistent, and keeps 
 flight surgeon informed.
 
 > ⚠️ Crew Health Console **supports flight surgeons; it does not replace them.** It is not a
-> medical device. All ranges and guidance are placeholders until verified (`TODO-verify`).
+> medical device. Ranges and guidance are not yet approved for flight use (`needsReview` in
+> `content.json`).
 
 ## Stack
 
@@ -69,52 +70,73 @@ src/
     seed.ts               deterministic 30-day demo mission generator
   lib/
     types.ts              shared data contract
-    status.ts             getStatus(indicator, value) → { level, action }
-    storage.ts            localStorage load/save/reset (the only localStorage user)
+    status.ts             getStatus(indicator, value) → { level, action, label }
+    validation.ts         validateValue(): input limits per indicator
+    insights.ts           getSystemStatus, getTrend, getReadiness
+    storage.ts            localStorage: readings, sync outbox, session (the only localStorage user)
     readings.ts           pure helpers: latestByIndicator, readingsFor, loggingStreak
-    useReadings.ts        React hooks over storage (useReadings, useMission)
+    sync.ts, session.ts   background sync with the optional server; crew sign-in
+    exportData.ts         CSV/JSON export (offline and server)
+    crewApi.ts            typed calls for a flight-surgeon console
+    syncProtocol.ts       API wire types shared with the server
+    useReadings.ts        React hooks (useReadings, useMission, useSync, useSession)
     *.test.ts             Vitest unit tests
+server/                   optional API: Hono + node:sqlite (see docs/backend-roadmap.md)
+docs/backend-roadmap.md   backend phases and API reference
 ```
 
 ## Data schema
 
-Defined in [`src/lib/types.ts`](src/lib/types.ts).
+`src/data/content.json` is written by C in this format; `src/data/content.ts` converts it into the
+app's types in [`src/lib/types.ts`](src/lib/types.ts), so components never depend on the file
+format. Full field list: CLAUDE.md.
 
-| Type             | Fields                                                                                                                                                                                               |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Indicator`      | `id`, `name`, `unit`, `howToMeasureInSpace`, `bodySystem`, `ranges {green, amber, red}` (each a list of `{min?, max?}` bands), `actions {green, amber, red}`, `sources[]`, `rangesStatus?`, `input?` |
-| `Reading`        | `id`, `indicatorId`, `value` (number), `timestamp` (ISO string), `note?`                                                                                                                             |
-| `BodySystem`     | `id` (`heart`, `bone`, `muscle`, `immune`, `eyes`, `mind`, `sleep`, `metabolic`), `name`, `spaceflightEffects`, `hazards[]`, `indicatorIds[]`                                                        |
-| `MissionProfile` | `id` (`iss` \| `lunar` \| `mars`), `name`, `description`, `commsDelaySeconds {min, max}` (one-way)                                                                                                   |
-
-Indicators: `heart_rate`, `bp_systolic`, `bp_diastolic`, `glucose`, `temperature`, `sleep_hours`,
-`mood` (1–5), `spo2`. Blood pressure is stored as two indicators so every reading is a single number.
-
-**Status rules** (`getStatus`): bands are inclusive and neighbouring bands share their edges.
-Levels are checked green → amber → red and the first match wins, so a value on an edge gets the
-less severe level. A value outside every band is **red** (conservative). Missing/NaN is **unknown**.
-
-```json
+```jsonc
 {
-  "id": "heart_rate",
-  "name": "Resting heart rate",
-  "unit": "bpm",
-  "bodySystem": "heart",
-  "rangesStatus": "TODO-verify",
-  "ranges": {
-    "green": [{ "min": 50, "max": 90 }],
-    "amber": [
-      { "min": 40, "max": 50 },
-      { "min": 90, "max": 110 }
-    ],
-    "red": [{ "max": 40 }, { "min": 110 }]
-  },
-  "actions": { "green": "…", "amber": "…", "red": "…" },
-  "sources": [{ "title": "…", "url": "…" }]
+  "meta": { "disclaimer": "…", "unknownStatusAction": "…" },
+  "hazards": [{ "id": "altered_gravity", "name": "Altered gravity", "summary": "…" }],
+  "bodySystems": [
+    { "id": "heart", "name": "…", "spaceflightEffects": "…", "hazards": ["altered_gravity"] },
+  ],
+  "missionProfiles": [
+    {
+      "id": "mars",
+      "name": "…",
+      "description": "…",
+      "commsDelaySeconds": { "min": 180, "max": 1320 },
+    },
+  ],
+  "indicators": [
+    {
+      "id": "heart_rate",
+      "name": "Heart rate",
+      "unit": "bpm",
+      "bodySystem": "heart",
+      "howToMeasure": ["…", "…"],
+      "bands": [
+        { "status": "red", "min": null, "max": 41, "label": "Very low resting pulse" },
+        { "status": "amber", "min": 41, "max": 60, "label": "Low; check personal baseline" },
+        { "status": "green", "min": 60, "max": 101, "label": "Usual adult resting range" },
+      ],
+      "actions": { "green": ["…"], "amber": ["…"], "red": ["…"] },
+      "needsReview": true,
+      "sources": ["aha_pulse"],
+    },
+  ],
+  "sources": [{ "id": "aha_pulse", "title": "…", "org": "…", "url": "…" }],
 }
 ```
 
-localStorage keys: `chc:v1:readings`, `chc:v1:mission`.
+Indicators: `heart_rate`, `bp_systolic`, `bp_diastolic` (heart), `spo2` (respiratory),
+`blood_glucose` (metabolic), `body_temp` (immune), `sleep_hours` and `mood` 1–5 (mind). Blood
+pressure is two indicators, so every reading is a single number.
+
+**Status rules** (`getStatus`): a band covers **min inclusive, max exclusive** (`null` = open), so
+101 bpm is amber above. A value outside every band is **red** (conservative); a missing value is
+**unknown**. `validateValue` rejects impossible input (e.g. SpO2 over 100, decimal heart rates).
+
+A `Reading` is `{ id, indicatorId, value, timestamp, note?, updatedAt? }`. localStorage keys:
+`chc:v1:readings`, `chc:v1:mission`, `chc:v1:outbox`, `chc:v1:sync`, `chc:v1:session`.
 
 ## Team ownership
 
@@ -134,9 +156,9 @@ Changes to `src/lib/types.ts` affect all three owners: agree on them first, then
 **All guidance and medical text lives in `src/data/content.json`, never hardcoded in components.**
 That covers actions, measurement instructions, body-system descriptions, hazards, mission
 descriptions and the disclaimer. Components may only contain UI labels ("Save reading", "Trends").
-Before the demo, Owner C replaces every `PLACEHOLDER`, adds real `sources`, and changes
-`rangesStatus` from `TODO-verify` to `verified`.
-`grep -n "TODO-verify\|PLACEHOLDER" src/data/content.json` shows what's left.
+Before the demo, Owner C replaces every `PLACEHOLDER` (body systems and mission profiles), and an
+indicator's `needsReview` becomes `false` only once its ranges are approved.
+`grep -n 'PLACEHOLDER\|"needsReview": true' src/data/content.json` shows what's left.
 
 ## License
 

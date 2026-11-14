@@ -3,6 +3,7 @@ import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { getIndicator } from '../../src/data/content';
+import { buildExport, toExportRows, type ExportFormat } from '../../src/lib/exportData';
 import { CURRENT_WINDOW_HOURS, getTrend } from '../../src/lib/insights';
 import type {
   CrewMember,
@@ -244,6 +245,53 @@ export function createApp(db: Db, opts: AppOptions = {}) {
       ? c.body(null, 204)
       : c.json({ error: 'Reading not found.' }, 404);
   });
+
+  // --- Export: the same rows as the offline app's export (src/lib/exportData.ts).
+  // Astronauts export their own readings; flight surgeons everyone's, or one crew member's with
+  // ?crewId=. Filters: indicatorId, from, to (ISO, inclusive), includeDeleted=true.
+  function exportReadings(c: Ctx, format: ExportFormat) {
+    const scope = readScope(c);
+    if (scope.error) return scope.error;
+    if (scope.crewId && !crew.get(scope.crewId) && scope.crewId !== 'local') {
+      return c.json({ error: 'Crew member not found.' }, 404);
+    }
+    const { indicatorId, from, to, includeDeleted } = c.req.query();
+    if (indicatorId && !getIndicator(indicatorId)) {
+      return c.json({ error: `Unknown indicatorId "${indicatorId}".`, field: 'indicatorId' }, 400);
+    }
+    for (const [field, v] of Object.entries({ from, to })) {
+      if (v !== undefined && !isIsoTimestamp(v)) {
+        return c.json({ error: `${field} must be an ISO 8601 string.`, field }, 400);
+      }
+    }
+    const list = readings.list({
+      crewId: scope.crewId,
+      indicatorId,
+      from: from && toIso(from),
+      to: to && toIso(to),
+      includeDeleted: includeDeleted === 'true',
+    });
+    const crewNames = Object.fromEntries(crew.list().map((m) => [m.id, m.name]));
+    const filters = Object.fromEntries(
+      Object.entries({ crewId: scope.crewId, indicatorId, from, to, includeDeleted }).filter(
+        (e): e is [string, string] => typeof e[1] === 'string' && e[1] !== '',
+      ),
+    );
+    const file = buildExport(toExportRows(list, { crewNames }), format, {
+      exportedAt: now(),
+      exportedBy: me(c),
+      scope: scope.crewId ?? 'all-crew',
+      filters,
+    });
+    return c.body(file.content, 200, {
+      'Content-Type': file.mimeType,
+      'Content-Disposition': `attachment; filename="${file.filename}"`,
+      'Cache-Control': 'no-store',
+    });
+  }
+
+  app.get('/export.csv', (c) => exportReadings(c, 'csv'));
+  app.get('/export.json', (c) => exportReadings(c, 'json'));
 
   // Two-way sync for an astronaut's devices. The device sends its pending changes and the
   // cursor from its last sync; the server applies them (newest updatedAt wins) and returns
