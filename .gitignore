@@ -36,3 +36,6 @@ server/data
 
 # Production bundle of the API
 dist-server
+
+# Local Claude desktop app settings (per machine)
+.claude/
