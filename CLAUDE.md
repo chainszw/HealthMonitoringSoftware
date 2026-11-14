@@ -45,7 +45,7 @@ Vitest 5, ESLint 10 + Prettier 3.
 | B: visual/UX  | `src/components/*`, `src/pages/*`, `src/index.css`, `src/App.tsx`, `public/`                                  |
 | C: content    | `src/data/content.json`, README pitch, write-up                                                               |
 
-Routes: `/` Dashboard, `/log`, `/body`, `/trends` (Trends is lazy-loaded because Recharts is large).
+Routes: `/` Dashboard, `/log`, `/body`, `/trends` (lazy-loaded), `/routine`.
 The mission profile is owned by `Layout` and passed to pages through `useOutletContext<{ mission }>()`.
 
 ## Schema (src/lib/types.ts)
@@ -67,8 +67,13 @@ The mission profile is owned by `Layout` and passed to pages through `useOutletC
 - Only `src/lib/storage.ts` touches `localStorage`. Components use `useReadings()` / `useMission()`.
 - Pure logic goes in `src/lib/` with a colocated `*.test.ts`. Keep `getStatus` pure.
 - Function components, **named exports** (no default exports except where `React.lazy` needs adapting).
-- Tailwind classes only (no CSS modules/styled-components). Status colors: `bg-status-green|amber|red|unknown`,
-  surfaces: `bg-space-900|800|700`. Recharts needs hex colors; keep them in sync with `index.css`.
+- Tailwind classes only (no CSS modules/styled-components). Design tokens (v0.3) in `index.css` `@theme`:
+  surfaces `bg-bg|surface|raised|hover|sunk`, text `text-ink|text|muted|faint`, borders `border-line|line-2`,
+  `accent`, status `ok|watch|act` (+ `-t` tints, `act-l` border). Old `status-*`/`space-*` tokens remain for now.
+- UI status is a `Tone` (`normal|watch|act`, `src/components/tone.ts`), always shown as shape + word + colour
+  (`StatusPill`/`StatusIcon` in `components/ui.tsx`). Map `getStatus` levels green/amber/red → normal/watch/act.
+  SVG needs hex colours: use `TONE[t].hex`, kept in sync with `index.css`.
+- Icons: inline stroke SVGs in `components/icons.tsx` (no icon library, no emoji).
 - TypeScript strict; no `any`. Prettier: single quotes, semicolons, width 100.
 - Seed data is deterministic (`generateSeed(days, now, seed)`). Keep scripted amber/red events for the demo.
 
@@ -85,8 +90,10 @@ The mission profile is owned by `Layout` and passed to pages through `useOutletC
 - [x] Types, content.json (placeholders), getStatus + tests, seed + tests, storage + tests
 - [x] Routed shell; functional placeholder components (StatusCard, VitalsForm, BodyFigure, TrendChart, Streak, Disclaimer)
 - [ ] Real content and sources in content.json; ranges verified (C)
-- [ ] Visual design pass: body illustration, animations, mobile layout (B)
-- [ ] Trend chart amber/red markers, date range filter (B)
+- [x] Visual design pass from the design canvas: shell, Dashboard, Body, Log, Trends, Routine (B, layout only)
+- [x] Trend chart amber/red markers, date range filter (B, on mock data)
+- [ ] Wire the new screens to real data (`useReadings`, `insights.ts`, content.json), then delete `src/pages/designMock.ts` (B)
+- [ ] Mobile layout pass (B)
 - [ ] Edit/delete readings, export data (A)
 - [ ] Mission comms-delay feature beyond the description card (A/B)
 - [ ] Optional: PWA/service worker for true offline install (ask first)
@@ -94,6 +101,28 @@ The mission profile is owned by `Layout` and passed to pages through `useOutletC
 ## Changelog
 
 - 2026-11-14: Initial scaffold (Claude session 1).
+- 2026-11-15: B: design v0.3 implemented as layout (mock data, not wired): new shell, all screens, `/routine` route (Claude, B session).
+
+## Person B — status
+
+Person B owns visuals and UX. Only Person B's sessions edit this section.
+
+- **Done:** design v0.3 layout for every screen (`/`, `/body`, `/log`, `/trends`, `/routine`) plus the app shell.
+- **In progress:** none.
+- **Next:**
+  1. Wire screens to `useReadings()`, `getSystemStatus`/`getTrend`/`getReadiness` and content.json; delete `designMock.ts`.
+  2. Move guidance/disclaimer text now in pages and `designMock.ts` into content.json (with C).
+  3. Mobile layout pass.
+- **Decisions and gotchas:**
+  - **Screens show mock data on purpose.** `src/pages/designMock.ts` holds everything copied from the design
+    (values, thresholds, guidance text). It breaks the "text lives in content.json" rule until wired. Don't build on it.
+  - Body figure is a flat 2D SVG (`BodyFigure.tsx`), not the design's three.js model: no new heavy dependency,
+    works offline. Callouts cover mind/eyes/heart/immune/bone; leader lines are measured with a ResizeObserver.
+  - Trends uses a hand-drawn SVG chart (matches the design); Recharts and `TrendChart.tsx` are unused now.
+  - Fonts: Instrument Sans / DM Mono only if installed locally (no Google Fonts at runtime); bundling needs a dependency, so ask first.
+  - At ≥1600×1040 the app locks to the viewport (`.chc-fit*`, `.chc-scroll` in `index.css`); panels scroll inside.
+  - `?alert` on `/` and `/body` shows the Act-now state.
+  - Unused for now, not deleted: `StatusCard`, `VitalsForm`, `Streak`, `TrendChart`, `Disclaimer`.
 
 ## Person A — status
 
