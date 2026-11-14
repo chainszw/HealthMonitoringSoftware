@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
+import { logger } from 'hono/logger';
+import { secureHeaders } from 'hono/secure-headers';
 import { getIndicator } from '../../src/data/content';
 import { buildExport, toExportRows, type ExportFormat } from '../../src/lib/exportData';
 import { CURRENT_WINDOW_HOURS, getTrend } from '../../src/lib/insights';
@@ -15,6 +17,7 @@ import type {
 } from '../../src/lib/syncProtocol';
 import { bearerToken } from './auth';
 import { arrivalTime, commsDelaySeconds, isMissionId } from './comms';
+import { originMatcher } from './cors';
 import { crewRepo } from './crewRepo';
 import type { Db } from './db';
 import { buildCrewOverview, byUrgency } from './overview';
@@ -22,16 +25,19 @@ import { readingsRepo, toSyncChange } from './readingsRepo';
 import { checkNewReading, checkPatch, checkSyncRequest, isIsoTimestamp, toIso } from './validate';
 
 export interface AppOptions {
-  /** Origins allowed to call the API from a browser. */
+  /** Origins allowed to call the API from a browser; `*` matches one part of a host name. */
   corsOrigins?: string[];
   now?: () => string;
   makeId?: () => string;
   /** Comms-delay simulation speed: 0 = off (default), 1 = real time, 0.01 = 100x faster. */
   commsDelayScale?: number;
+  /** Log one line per request (method, path, status, time). On in production, off in tests. */
+  logRequests?: boolean;
 }
 
 export const DEFAULT_CORS_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 const MAX_SYNC_BODY_BYTES = 2 * 1024 * 1024;
+const MAX_BODY_BYTES = 64 * 1024;
 
 type Env = { Variables: { crew: CrewMember } };
 type Ctx = Context<Env>;
@@ -65,14 +71,26 @@ export function createApp(db: Db, opts: AppOptions = {}) {
   const crew = crewRepo(db, now);
   const app = new Hono<Env>();
 
+  if (opts.logRequests) app.use('*', logger());
   app.use(
     '*',
     cors({
-      origin: opts.corsOrigins ?? DEFAULT_CORS_ORIGINS,
+      origin: originMatcher(opts.corsOrigins ?? DEFAULT_CORS_ORIGINS),
       allowHeaders: ['Content-Type', 'Authorization'],
       allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+      maxAge: 600,
     }),
   );
+  // Standard protective headers (nosniff, no framing, no referrer leaks, HSTS). The resource
+  // policy header is left out: browsers call this API from another origin on purpose.
+  app.use('*', secureHeaders({ crossOriginResourcePolicy: false }));
+  // Readings are small; only /sync (below) takes larger bodies.
+  const smallBody = bodyLimit({
+    maxSize: MAX_BODY_BYTES,
+    onError: (c) => c.json({ error: 'Request body too large.' }, 413),
+  });
+  app.use('/readings', smallBody);
+  app.use('/readings/*', smallBody);
 
   app.onError((err, c) => {
     console.error(err);

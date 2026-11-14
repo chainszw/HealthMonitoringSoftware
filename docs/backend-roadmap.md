@@ -16,7 +16,7 @@ rules directly instead of copying them.
 | 4     | Flight-surgeon endpoints: crew overview, per-crew trends           | Done   |
 | 5     | Export: `GET /export.json`, `GET /export.csv`                      | Done   |
 | 6     | Comms-delay demo: Earth sees data after the mission's delay        | Done   |
-| 7     | Deploy (Render or Fly.io), `VITE_API_URL` on Vercel, CORS          | Next   |
+| 7     | Deploy (Render or Fly.io), `VITE_API_URL` on Vercel, CORS          | Ready  |
 
 The minimum that demos is phases 0, 1, 3 and 7. Without `VITE_API_URL` the app stays local-only.
 
@@ -168,6 +168,59 @@ whole time.
 
 `npm run demo:comms` shows it end to end: Mira logs 118 bpm on Mars, and the flight surgeon's view
 shows "1 change in transit" with a countdown until the reading arrives about 13 s later.
+
+## Deploy (phase 7)
+
+The web app stays on Vercel. The API runs as one small container with a persistent disk for its
+SQLite file.
+
+**What is in the repo:**
+
+- `npm run build:server` bundles the server and the crew tool into `dist-server/` (self-contained
+  JS files; no `node_modules` at run time). `npm run start:server` is `node dist-server/index.js`.
+- `Dockerfile`: builds the bundle, then runs it as the unprivileged `node` user, with the database
+  at `/data/chc.db`, a `/health` check and a clean shutdown on SIGTERM. CI builds the image and
+  checks `/health` on every PR.
+- `render.yaml`: Render Blueprint (Docker, `/health` check, 1 GB disk at `/data`).
+
+**Settings (environment variables):**
+
+| Variable            | Value                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `CORS_ORIGINS`      | The Vercel URL(s), e.g. `https://crew-health.vercel.app,https://crew-health-*.vercel.app` (`*` = one host-name part, for preview deploys) |
+| `DB_PATH`           | `/data/chc.db` (on the persistent disk)                                                                                                   |
+| `COMMS_DELAY_SCALE` | `0`, or `0.01` for the comms-delay demo                                                                                                   |
+| `PORT`              | Set by the host                                                                                                                           |
+
+**Render (recommended):**
+
+1. The code must be on the GitHub branch Render deploys (normally `main`).
+2. Render → New → Blueprint → pick the repository. It reads `render.yaml`; enter `CORS_ORIGINS`.
+   A persistent disk needs a paid instance (Starter). On the free plan, remove `disk` and set
+   `plan: free`: it works, but the database resets on every deploy or restart.
+3. When it is live, open the service's Shell and create the crew:
+   `node dist-server/crewCli.js demo` (or `add "<name>" astronaut`). Copy the tokens: they are
+   shown once.
+4. Check `https://<service>.onrender.com/health`.
+
+**Fly.io:** `fly launch --no-deploy` (uses the Dockerfile), `fly volumes create data --size 1`,
+mount it at `/data` in `fly.toml`, `fly secrets set CORS_ORIGINS=...`, `fly deploy`, then
+`fly ssh console -C "node dist-server/crewCli.js demo"`.
+
+**Any Docker host:** `docker run -p 8787:8787 -v crew-health-data:/data -e CORS_ORIGINS=... crew-health-api`.
+
+**Connect the web app (Vercel project settings):** set `VITE_API_URL` to the API's URL for
+Production and Preview, then redeploy. Without it the app stays offline-only. `VITE_API_TOKEN`
+is for demos only: it ends up in the public JavaScript bundle.
+
+**Before going public:**
+
+- Keep it to one instance. SQLite is a single file, so don't scale the API out.
+- HTTPS comes from the host. Set `CORS_ORIGINS` to your own URLs only.
+- Every request is logged as one line (method, path, status, time). Tokens are never logged.
+- Use one token per person, and replace a token with `crewCli.js token <id>` if it leaks.
+- Use the demo crew for demos only.
+- Back up `/data` (Render disk snapshots; `fly volumes snapshots` on Fly.io).
 
 ## Sync (phase 3)
 

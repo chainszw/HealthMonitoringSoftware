@@ -1,0 +1,26 @@
+# Render Blueprint for the optional API (server/). The web app stays on Vercel.
+# Render: New > Blueprint > pick this repository. See docs/backend-roadmap.md ("Deploy").
+services:
+  - type: web
+    name: crew-health-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # A persistent disk needs a paid instance. On the free plan, remove `disk` and set
+    # `plan: free`: it works, but the database (crew, tokens, readings) resets on every deploy
+    # or restart.
+    plan: starter
+    healthCheckPath: /health
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DB_PATH
+        value: /data/chc.db
+      # Your Vercel URL(s), comma-separated; * matches one part of a host name, e.g.
+      # https://crew-health.vercel.app,https://crew-health-*.vercel.app
+      - key: CORS_ORIGINS
+        sync: false
+      # 0 = off; 0.01 = comms-delay demo (Mars 13.2 s one way).
+      - key: COMMS_DELAY_SCALE
+        value: '0'

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "dev:server": "tsx watch server/src/index.ts",
-    "start:server": "tsx server/src/index.ts",
+    "build:server": "vite build --config server/vite.config.ts",
+    "start:server": "node dist-server/index.js",
     "demo:server": "node server/scripts/demo.mjs",
     "demo:comms": "node server/scripts/comms-demo.mjs",
     "crew": "tsx server/src/crewCli.ts",

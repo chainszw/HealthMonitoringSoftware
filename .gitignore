@@ -33,3 +33,6 @@ coverage
 
 # Local API database
 server/data
+
+# Production bundle of the API
+dist-server

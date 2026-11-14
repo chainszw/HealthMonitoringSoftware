@@ -48,6 +48,9 @@ to restore it.
 
 **Deploy:** import the repo in Vercel. It detects Vite automatically (build command `npm run build`,
 output directory `dist`). `vercel.json` rewrites all routes to `index.html` so client-side routing works.
+The optional API deploys separately as a Docker container (`Dockerfile`, Render Blueprint in
+`render.yaml`); then set `VITE_API_URL` in Vercel. Step by step: "Deploy" in
+[docs/backend-roadmap.md](docs/backend-roadmap.md).
 
 ## Folder map
 

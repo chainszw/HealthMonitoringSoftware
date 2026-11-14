@@ -17,4 +17,21 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+      - run: npm run build:server
       - run: npx vitest run
+
+  # The API's Docker image builds and answers /health (the deploy target for Render or Fly.io).
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t crew-health-api .
+      - name: Smoke test the image
+        run: |
+          docker run -d --name api -p 8787:8787 crew-health-api
+          for i in $(seq 1 30); do
+            if curl -fsS localhost:8787/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs api
+          exit 1

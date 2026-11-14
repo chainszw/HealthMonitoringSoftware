@@ -32,6 +32,8 @@ npm run dev:server # API on :8787 (tsx watch); env PORT, DB_PATH (server/data/ch
                    # COMMS_DELAY_SCALE (0 = off, 1 = real time, 0.01 = Mars 13.2 s one way)
 npm run demo:server # walk through the API (needs env API_TOKEN, optional SURGEON_TOKEN)
 npm run demo:comms # comms-delay demo (API_TOKEN of an astronaut on Mars + SURGEON_TOKEN)
+npm run build:server # production bundle → dist-server/index.js + crewCli.js (run with plain node)
+npm run start:server # node dist-server/index.js (production; see "Deploy" in docs/backend-roadmap.md)
 npm run crew -- list|add "<name>" <astronaut|flight_surgeon> [id]|token <id>|mission <id> <iss|lunar|mars|none>|demo
 ```
 
@@ -54,12 +56,12 @@ rules are shared, never copied.
 
 ## Layout & ownership
 
-| Owner         | Files                                                                                                                   |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| A: logic/data | `src/lib/*` (types, status, storage, readings, useReadings, tests), `src/data/seed.ts`, `src/data/content.ts`           |
-| B: visual/UX  | `src/components/*`, `src/pages/*`, `src/index.css`, `src/App.tsx`, `public/`                                            |
-| C: content    | `src/data/content.json`, README pitch, write-up                                                                         |
-| A: backend    | `server/*` (db, readingsRepo, crewRepo, auth, validate, app, index, crewCli, tests, scripts), `docs/backend-roadmap.md` |
+| Owner         | Files                                                                                                                                                                 |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A: logic/data | `src/lib/*` (types, status, storage, readings, useReadings, tests), `src/data/seed.ts`, `src/data/content.ts`                                                         |
+| B: visual/UX  | `src/components/*`, `src/pages/*`, `src/index.css`, `src/App.tsx`, `public/`                                                                                          |
+| C: content    | `src/data/content.json`, README pitch, write-up                                                                                                                       |
+| A: backend    | `server/*` (db, readingsRepo, crewRepo, auth, validate, app, index, crewCli, tests, scripts), `docs/backend-roadmap.md`, `Dockerfile`, `.dockerignore`, `render.yaml` |
 
 Routes: `/` Dashboard, `/log`, `/body`, `/trends` (Trends is lazy-loaded because Recharts is large).
 The mission profile is owned by `Layout` and passed to pages through `useOutletContext<{ mission }>()`.
@@ -133,7 +135,9 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - [x] Backend phase 4: flight-surgeon crew overview, per-member overview and trend endpoints (A)
 - [x] Backend phase 5: CSV/JSON export, shared by the offline app and the API (A)
 - [x] Backend phase 6: comms-delay simulation (Earth-side views see data after the mission's delay) (A)
-- [ ] Backend phase 7: deploy (A)
+- [ ] Backend phase 7: deploy (A): deploy-ready (bundle, Dockerfile, render.yaml, CI image check,
+      hardening); the actual deploy needs the team's GitHub merge, a host account and Vercel's
+      `VITE_API_URL`
 - [ ] Mission comms-delay feature beyond the description card (A/B): backend done (`inTransit`,
       `commsDelaySeconds` in the overview); showing it is B's
 - [ ] Optional: PWA/service worker for true offline install (ask first)
@@ -160,6 +164,9 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - 2026-11-15: A: comms delay (roadmap phase 6): `COMMS_DELAY_SCALE`; mission per astronaut (sent by the
   app with each sync, or `npm run crew -- mission`); readings get `arrives_at`; flight-surgeon views
   show only what reached Earth, with `inTransit` and `commsDelaySeconds` in the overview; `demo:comms`.
+- 2026-11-15: A: deploy-ready (roadmap phase 7): `build:server` bundle (`dist-server/`), `Dockerfile`,
+  `render.yaml`, CI builds the bundle and the image; `CORS_ORIGINS` wildcards; security headers, 64 KB
+  body limit on readings, request log, clean shutdown.
 
 ## Person A — status
 
@@ -174,9 +181,10 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `a/surgeon-overview` (roadmap phase 4): `GET /crew/overview` (astronauts most urgent first: status, readiness, per-system status, latest per indicator, overdue checks, amber/red alerts), `GET /crew/:id/overview`, `GET /crew/:id/trend/:indicatorId`; `src/lib/crewApi.ts`. Built on `a/crew-auth`. Verified live with the demo crew: Mira red, Sam amber, Alex green.
   - `a/export` (roadmap phase 5): shared CSV/JSON export builder, `GET /export.csv` and `/export.json` (same access as reading), `exportDeviceReadings()` for offline export, `fetchExport()`. Built on `a/surgeon-overview`. Verified live: surgeon exports Mira's sleep as CSV; astronauts get 403 for others.
   - `a/comms-delay` (roadmap phase 6): mission per astronaut, `arrives_at` on writes from space, Earth-side filtering for flight surgeons, `inTransit` in the overview, `npm run demo:comms`. Built on `a/export`. Verified live at x0.01: Earth saw Mira's 118 bpm only after 13 s.
+  - `a/deploy` (roadmap phase 7, deploy-ready): production bundle, Dockerfile, render.yaml, CI image smoke test, wildcard CORS, security headers, body limits, request log, graceful shutdown. Built on `a/comms-delay`. Verified locally: the bundle ran with plain `node`, the bundled crew tool made the demo crew, the full API walkthrough passed, CORS allowed a Vercel preview origin and blocked others, 70 KB body → 413, Ctrl+C closed the database cleanly.
 - **In progress:** none.
-- **Next:** backend roadmap in `docs/backend-roadmap.md`, one phase at a time:
-  1. Phase 7: deploy (server host, `VITE_API_URL`, CORS).
+- **Next:**
+  1. Phase 7, the actual deploy (needs the team): get the work onto GitHub `main` (merge #2, then the stacked branches), create the Render service from `render.yaml` (paid instance for the disk), set `CORS_ORIGINS`, create the crew in the Render shell, set `VITE_API_URL` on Vercel.
   - Still open on the logic side: readiness and routine prompts; mission risk emphasis.
 - **Decisions and gotchas:**
   - C owns the content.json format; the app-facing types stay stable and `src/data/content.ts` adapts. If C changes the format again, update `RawContent`/`normalizeContent`, not the components.

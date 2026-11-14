@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-server
+server/data
+coverage
+.git
+.github
+.claude
+.vercel
+.env
+.env.*
+!.env.example
+*.log
