@@ -30,3 +30,6 @@ dist-ssr
 .vercel
 coverage
 .playwright-mcp
+
+# Local API database
+server/data
