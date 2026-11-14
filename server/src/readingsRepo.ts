@@ -233,5 +233,3 @@ export function readingsRepo(db: Db, now: () => string = () => new Date().toISOS
 
   return { get, list, insert, update, remove, applyChange, changesSince, cursor, inTransit };
 }
-
-export type ReadingsRepo = ReturnType<typeof readingsRepo>;
