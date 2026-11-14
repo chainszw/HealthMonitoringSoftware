@@ -17,6 +17,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "../src/lib", "../src/data"],
-  "exclude": ["../src/**/*.test.ts", "../src/lib/useReadings.ts"]
+  "include": ["src"]
 }

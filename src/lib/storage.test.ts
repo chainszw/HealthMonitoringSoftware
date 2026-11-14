@@ -4,10 +4,19 @@ import {
   READINGS_KEY,
   addReading,
   clearReadings,
+  deleteReading,
+  getReadingsSnapshot,
   loadMission,
+  loadOutbox,
   loadReadings,
+  loadSyncState,
+  refreshReadings,
   resetToSeed,
   saveMission,
+  saveSyncState,
+  subscribeOutbox,
+  subscribeReadings,
+  updateReading,
 } from './storage';
 
 class MemoryStorage {
@@ -25,6 +34,79 @@ class MemoryStorage {
 
 beforeEach(() => {
   (globalThis as { localStorage?: unknown }).localStorage = new MemoryStorage();
+  refreshReadings();
+});
+
+describe('edits and the sync outbox', () => {
+  const T0 = new Date('2026-11-15T08:00:00.000Z');
+  const T1 = new Date('2026-11-15T09:00:00.000Z');
+
+  beforeEach(() => {
+    clearReadings();
+  });
+
+  it('stamps new readings and queues them for sync', () => {
+    const [r] = addReading({ indicatorId: 'mood', value: 4 }, T0);
+    expect(r.updatedAt).toBe(T0.toISOString());
+    expect(loadOutbox()).toEqual({
+      [r.id]: {
+        id: r.id,
+        indicatorId: 'mood',
+        value: 4,
+        timestamp: T0.toISOString(),
+        updatedAt: T0.toISOString(),
+      },
+    });
+  });
+
+  it('updates a reading and queues the new version', () => {
+    const [r] = addReading({ indicatorId: 'heart_rate', value: 70, note: 'x' }, T0);
+    const [u] = updateReading(r.id, { value: 75, note: undefined }, T1);
+    expect(u).toMatchObject({ id: r.id, value: 75, updatedAt: T1.toISOString() });
+    expect(u).not.toHaveProperty('note');
+    expect(loadOutbox()[r.id]).toMatchObject({ value: 75, updatedAt: T1.toISOString() });
+  });
+
+  it('deletes a reading and queues a tombstone', () => {
+    const [r] = addReading({ indicatorId: 'heart_rate', value: 70 }, T0);
+    expect(deleteReading(r.id, T1)).toEqual([]);
+    expect(loadReadings()).toEqual([]);
+    expect(loadOutbox()[r.id]).toMatchObject({ value: 70, deletedAt: T1.toISOString() });
+  });
+
+  it('ignores unknown ids', () => {
+    addReading({ indicatorId: 'mood', value: 4 }, T0);
+    const before = loadOutbox();
+    expect(updateReading('nope', { value: 1 })).toHaveLength(1);
+    expect(deleteReading('nope')).toHaveLength(1);
+    expect(loadOutbox()).toEqual(before);
+  });
+
+  it('notifies subscribers and keeps the snapshot stable between changes', () => {
+    let readingCalls = 0;
+    let outboxCalls = 0;
+    const offReadings = subscribeReadings(() => readingCalls++);
+    const offOutbox = subscribeOutbox(() => outboxCalls++);
+    const snap = getReadingsSnapshot();
+    expect(getReadingsSnapshot()).toBe(snap);
+    addReading({ indicatorId: 'mood', value: 4 }, T0);
+    expect(readingCalls).toBe(1);
+    expect(outboxCalls).toBe(1);
+    expect(getReadingsSnapshot()).not.toBe(snap);
+    expect(getReadingsSnapshot()).toHaveLength(1);
+    offReadings();
+    offOutbox();
+    addReading({ indicatorId: 'mood', value: 3 }, T1);
+    expect(readingCalls).toBe(1);
+  });
+
+  it('reset and clear drop pending changes and restart sync from scratch', () => {
+    addReading({ indicatorId: 'mood', value: 4 }, T0);
+    saveSyncState({ cursor: 12, lastSyncedAt: T0.toISOString() });
+    resetToSeed(T1);
+    expect(loadOutbox()).toEqual({});
+    expect(loadSyncState()).toEqual({ cursor: 0 });
+  });
 });
 
 describe('storage', () => {

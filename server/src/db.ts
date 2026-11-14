@@ -5,7 +5,7 @@ import { dirname } from 'node:path';
 // SQLite via Node's built-in node:sqlite (no native dependency).
 // Schema version lives in PRAGMA user_version; add a new step to MIGRATIONS to change it.
 
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: string[] = [
   `CREATE TABLE readings (
      id           TEXT PRIMARY KEY,
      crew_id      TEXT NOT NULL DEFAULT 'local',
@@ -19,6 +19,10 @@ const MIGRATIONS: string[] = [
    );
    CREATE INDEX readings_indicator_time ON readings (indicator_id, timestamp);
    CREATE INDEX readings_updated ON readings (updated_at);`,
+  // 2: change counter for sync. Every write sets seq to MAX(seq) + 1, so "changed since N" is exact.
+  `ALTER TABLE readings ADD COLUMN seq INTEGER NOT NULL DEFAULT 0;
+   UPDATE readings SET seq = rowid;
+   CREATE INDEX readings_seq ON readings (seq);`,
 ];
 
 export type Db = DatabaseSync;

@@ -69,6 +69,8 @@ export interface Reading {
   /** ISO 8601 string. */
   timestamp: string;
   note?: string;
+  /** When this reading was last added or edited on this device (ISO). Used by sync; absent on seed data. */
+  updatedAt?: string;
 }
 
 export interface BodySystem {

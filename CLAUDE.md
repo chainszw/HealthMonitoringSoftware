@@ -32,6 +32,9 @@ npm run dev:server # API on :8787 (tsx watch); env PORT, DB_PATH (server/data/ch
 npm run demo:server # walk through the API against a running server
 ```
 
+Sync is off by default. To turn it on locally, copy `.env.example` to `.env.local`
+(`VITE_API_URL=http://localhost:8787`) and run `npm run dev:server` next to `npm run dev`.
+
 Before committing, run `npm run lint && npm test && npm run build && npm run format:check`.
 
 ## Stack & versions
@@ -67,7 +70,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   actionSteps: Record<level, string[]>, sources[] {title,org?,url?}, rangesStatus ("TODO-verify" | "verified"),
   input {min,max,step} (from `INPUT_LIMITS` in `src/lib/validation.ts`), hazards[] (names), and optional
   whyItMatters, spaceflightEffect, escalation, measureFrequency, reviewNote
-- `Reading`: id, indicatorId, value: number, timestamp: ISO string, note?
+- `Reading`: id, indicatorId, value: number, timestamp: ISO string, note?, updatedAt? (last local
+  add/edit, used by sync; absent on seed data)
 - `BodySystem`: id (heart|respiratory|bone|muscle|immune|eyes|mind|sleep|metabolic), name, spaceflightEffects,
   hazards[] (names), indicatorIds[] (derived from each indicator's bodySystem)
 - `MissionProfile`: id (iss|lunar|mars), name, description, commsDelaySeconds {min,max} (one-way)
@@ -78,8 +82,11 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   Bands are half-open: **min inclusive, max exclusive**; checked green → amber → red, first match wins;
   outside all bands → red.
 - `validateValue(indicator, raw)` → `{ ok: true, value } | { ok: false, error }`. Run it before saving a reading.
-- localStorage keys: `chc:v1:readings`, `chc:v1:mission`. Bump `v1` if the Reading shape changes incompatibly.
-  Old ids `glucose`/`temperature` are migrated on load.
+- localStorage keys: `chc:v1:readings`, `chc:v1:mission`, `chc:v1:outbox` (changes not yet sent to the
+  server, latest per id), `chc:v1:sync` ({ cursor, lastSyncedAt }). Bump `v1` if the Reading shape changes
+  incompatibly. Old ids `glucose`/`temperature` are migrated on load.
+- Sync wire format (`src/lib/syncProtocol.ts`, shared by app and server): `SyncChange` = Reading +
+  `updatedAt` + `deletedAt?`; `POST /sync { since, changes }` → `{ changes, cursor, rejected }`.
 
 ## Conventions
 
@@ -110,9 +117,11 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - [ ] Real content and sources in content.json; ranges verified (C)
 - [ ] Visual design pass: body illustration, animations, mobile layout (B)
 - [ ] Trend chart amber/red markers, date range filter (B)
-- [ ] Edit/delete readings, export data (A) (server side done: PATCH/DELETE in the API)
+- [ ] Edit/delete readings, export data (A): logic done (`useReadings().update/remove`, API PATCH/DELETE);
+      edit/delete UI is B's; export still to do
 - [x] Backend phases 0–1: `server/` skeleton, SQLite, readings CRUD API + tests (A)
-- [ ] Backend phases 2–7: crew/roles, sync, flight-surgeon endpoints, export, comms delay, deploy (A)
+- [x] Backend phase 3: `POST /sync` + offline outbox and background sync in `src/lib` (A)
+- [ ] Backend phases 2, 4–7: crew/roles, flight-surgeon endpoints, export, comms delay, deploy (A)
 - [ ] Mission comms-delay feature beyond the description card (A/B)
 - [ ] Optional: PWA/service worker for true offline install (ask first)
 
@@ -123,6 +132,9 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   `blood_glucose`/`body_temp`; `respiratory` system; placeholder bodySystems/missionProfiles restored in content.json.
 - 2026-11-15: A: optional backend in `server/` (Hono, node:sqlite): readings CRUD API with shared validation,
   soft deletes, idempotent client ids; `dev:server`/`demo:server` scripts; `docs/backend-roadmap.md`.
+- 2026-11-15: A: sync (roadmap phase 3): `POST /sync` with a change-counter cursor and last-write-wins;
+  offline outbox, edit/delete and background sync in `src/lib`; `useReadings()` gains `update`/`remove`;
+  new `useSync()`; storage keys `chc:v1:outbox`, `chc:v1:sync`; `VITE_API_URL` turns sync on.
 
 ## Person A — status
 
@@ -132,12 +144,12 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `a/contract`: added `getSystemStatus`, `getTrend` and `getReadiness` in `src/lib/insights.ts`, with tests, plus the CI workflow (lint, build, test on PRs and main).
   - `a/content-adapter`: `normalizeContent` maps C's content.json format to the app types; getStatus uses half-open bands and returns the band label; `validateValue` + `INPUT_LIMITS`; seed retuned to the new bands; stored-id migration.
   - `a/backend-readings` (roadmap phases 0–1): `server/` with `GET /health`, `GET /readings?indicatorId&from&to&includeDeleted`, `GET/PATCH/DELETE /readings/:id`, `POST /readings`. Built on `a/content-adapter`.
+  - `a/sync` (roadmap phase 3): `POST /sync`; client outbox and background sync in `src/lib/storage.ts` and `src/lib/sync.ts`; `useReadings()` shared across components via `useSyncExternalStore`; `useSync()`. Built on `a/backend-readings`. Verified live: push, pull of another device's edit, and an offline reading catching up after a server restart.
 - **In progress:** none.
 - **Next:** backend roadmap in `docs/backend-roadmap.md`, one phase at a time:
-  1. Phase 2: crew members and roles (astronaut, flight surgeon), simple bearer tokens.
-  2. Phase 3: `POST /sync` plus a sync queue behind `storage.ts`/`useReadings`, so B's pages sync with no component changes.
-  3. Phases 4–7: flight-surgeon overview, export, comms-delay demo, deploy.
-  - Still open on the app side: readiness and routine prompts; edit/delete in the UI; mission risk emphasis.
+  1. Phase 2: crew members and roles (astronaut, flight surgeon), simple bearer tokens. **Needed before a public deploy:** until then every device shares one log.
+  2. Phases 4–7: flight-surgeon overview, export, comms-delay demo, deploy.
+  - Still open on the logic side: readiness and routine prompts; mission risk emphasis.
 - **Decisions and gotchas:**
   - C owns the content.json format; the app-facing types stay stable and `src/data/content.ts` adapts. If C changes the format again, update `RawContent`/`normalizeContent`, not the components.
   - `bodySystems`, `missionProfiles` and `meta.unknownStatusAction` were missing from C's file; A restored them as PLACEHOLDER text for C to rewrite. Body-system `indicatorIds` are derived, not stored. The `sleep` system currently has no indicators (C put `sleep_hours` under `mind`).
@@ -147,6 +159,9 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - Readiness: green 100, amber 50, red 0, averaged over current indicators. It is 0 when no indicator has a current reading.
   - Server: readings keep the client's UUID, and re-POSTing an existing id returns the stored reading (200) instead of a duplicate, so offline retries are safe. Deletes are soft (`deletedAt` tombstone) so sync can propagate them. Every row has `updatedAt` for sync. The `crew_id` column defaults to `'local'` until phase 2.
   - Server schema changes go in `MIGRATIONS` in `server/src/db.ts` (tracked with `PRAGMA user_version`). Never edit an applied migration; append a new one.
+  - Sync: every server write takes the next `seq` (change counter); devices send their last `cursor` and get everything with a higher `seq`. Conflicts: the newest `updatedAt` wins, the server wins ties, and a stale change gets the server's version back, so devices converge. Device clocks more than 24h ahead are refused.
+  - Sync, client side: add/edit/delete write locally first, then queue the latest version per id in the outbox; background sync runs on start, about 1s after a change, every 30s, and on `online`/`focus`. Seed readings are never pushed (each device has its own demo data). Reset and clear are local only: they drop pending changes and set the cursor back to 0, so the next sync pulls the server's copy again. A change the server refuses is dropped from the outbox and reported in `useSync().error`.
+  - All browser-only APIs in shared `src/lib` files are typed locally (no DOM types), because the server typechecks those files too.
   - On Windows (`core.autocrlf=true`), `npm run format:check` flags every file for CRLF line endings. Use `npx prettier --check --end-of-line auto .` locally. Git stores LF, so CI is unaffected.
 - **Contract (for B):**
   - Import from `src/lib/insights`. Each function takes `readings` as an optional argument, so pass `readings` from `useReadings()` to stay in sync with state.
@@ -155,4 +170,6 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `getReadiness(readings?)` returns `{ score, streak }`.
   - `validateValue(indicator, raw)` from `src/lib/validation`: call it in VitalsForm before `add()` and show `error` if not ok.
   - New optional detail for UI: `indicator.howToMeasureSteps`, `actionSteps[level]` (render as lists), `whyItMatters`, `escalation`, `status.label`. SpO2 now belongs to the new `respiratory` system, which BodyFigure has no region for yet.
-  - Backend: nothing for B to wire up yet. In phase 3, A adds `useSync()` → `{ status: 'offline' | 'syncing' | 'synced', lastSyncedAt }` for a small status badge; pages keep using `useReadings()`.
+  - `useReadings()` returns `{ readings, add, update, remove, reset, clear }`. New: `update(id, { value?, timestamp?, note? })` and `remove(id)` for edit/delete UI. All components see the same readings, including changes pulled from the server; pages need no changes for sync.
+  - `useSync()` (from `src/lib/useReadings`) returns `{ status: 'disabled' | 'offline' | 'syncing' | 'synced' | 'error', pending, lastSyncedAt?, error? }`, if B wants to show sync state anywhere. `'disabled'` means no `VITE_API_URL`.
+  - A frontend outside this repo can call the HTTP API directly: see `docs/backend-roadmap.md`.

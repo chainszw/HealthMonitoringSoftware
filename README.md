@@ -37,6 +37,9 @@ npm run dev:server   # optional API on http://localhost:8787 (SQLite file in ser
 npm run demo:server  # walk through the API against a running server
 ```
 
+Sync is off by default. To try it, copy `.env.example` to `.env.local`, run `npm run dev:server`,
+then restart `npm run dev`. See [docs/backend-roadmap.md](docs/backend-roadmap.md).
+
 The app seeds a 30-day demo mission on first load. Use **Reset to demo data** on the Dashboard
 to restore it.
 

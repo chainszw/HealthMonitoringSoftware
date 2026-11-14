@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
+import type { SyncChange, SyncResponse } from '../../src/lib/syncProtocol';
 import type { Db } from './db';
-import { readingsRepo } from './readingsRepo';
-import { checkNewReading, checkPatch, isIsoTimestamp } from './validate';
+import { readingsRepo, toSyncChange } from './readingsRepo';
+import { checkNewReading, checkPatch, checkSyncRequest, isIsoTimestamp, toIso } from './validate';
 
 export interface AppOptions {
   /** Origins allowed to call the API from a browser. */
@@ -13,10 +15,11 @@ export interface AppOptions {
 }
 
 export const DEFAULT_CORS_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const MAX_SYNC_BODY_BYTES = 2 * 1024 * 1024;
 
 /**
  * The HTTP API. Optional for the app: the frontend works offline from localStorage
- * and will sync with this server when it can (roadmap phase 3).
+ * and syncs with this server through POST /sync when it can reach it.
  */
 export function createApp(db: Db, opts: AppOptions = {}) {
   const now = opts.now ?? (() => new Date().toISOString());
@@ -44,8 +47,8 @@ export function createApp(db: Db, opts: AppOptions = {}) {
     }
     const readings = repo.list({
       indicatorId,
-      from,
-      to,
+      from: from && toIso(from),
+      to: to && toIso(to),
       includeDeleted: includeDeleted === 'true',
     });
     return c.json({ readings });
@@ -82,6 +85,55 @@ export function createApp(db: Db, opts: AppOptions = {}) {
     repo.remove(c.req.param('id'))
       ? c.body(null, 204)
       : c.json({ error: 'Reading not found.' }, 404),
+  );
+
+  // Two-way sync. The device sends its pending changes and the cursor from its last sync;
+  // the server applies them (newest updatedAt wins) and returns everything changed since.
+  app.post(
+    '/sync',
+    bodyLimit({
+      maxSize: MAX_SYNC_BODY_BYTES,
+      onError: (c) => c.json({ error: 'Request body too large.' }, 413),
+    }),
+    async (c) => {
+      const body: unknown = await c.req.json().catch(() => undefined);
+      const check = checkSyncRequest(body, now);
+      if (!check.ok) return c.json({ error: check.error, field: check.field }, 400);
+      const { changes, rejected } = check.value;
+
+      // A cursor ahead of the server means the server data was reset: send everything.
+      const since = check.value.since > repo.cursor() ? 0 : check.value.since;
+      const staleIds: string[] = [];
+      db.exec('BEGIN');
+      try {
+        for (const change of changes) {
+          const result = repo.applyChange(change);
+          if (result === 'stale') staleIds.push(change.id);
+          if (result === 'indicator-mismatch') {
+            rejected.push({ id: change.id, error: 'indicatorId cannot change.' });
+          }
+        }
+        db.exec('COMMIT');
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+
+      // Everything newer than the device's cursor, plus the winning version of any stale
+      // change, so the device converges on the server's copy.
+      const out = new Map<string, SyncChange>();
+      for (const r of repo.changesSince(since)) out.set(r.id, toSyncChange(r));
+      for (const id of staleIds) {
+        const r = repo.get(id);
+        if (r) out.set(id, toSyncChange(r));
+      }
+      const response: SyncResponse = {
+        changes: [...out.values()],
+        cursor: repo.cursor(),
+        rejected,
+      };
+      return c.json(response);
+    },
   );
 
   return app;

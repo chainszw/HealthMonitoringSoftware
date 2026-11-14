@@ -1,3 +1,5 @@
+import type { SyncChange } from '../../src/lib/syncProtocol';
+import { isNewer } from '../../src/lib/syncProtocol';
 import type { Reading } from '../../src/lib/types';
 import type { Db } from './db';
 
@@ -17,6 +19,7 @@ interface Row {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  seq: number;
 }
 
 function toReading(r: Row): StoredReading {
@@ -33,6 +36,20 @@ function toReading(r: Row): StoredReading {
   return out;
 }
 
+/** A stored reading in sync wire format (drops server-only fields). */
+export function toSyncChange(r: StoredReading): SyncChange {
+  const out: SyncChange = {
+    id: r.id,
+    indicatorId: r.indicatorId,
+    value: r.value,
+    timestamp: r.timestamp,
+    updatedAt: r.updatedAt,
+  };
+  if (r.note !== undefined) out.note = r.note;
+  if (r.deletedAt !== undefined) out.deletedAt = r.deletedAt;
+  return out;
+}
+
 export interface ListFilter {
   indicatorId?: string;
   /** Inclusive ISO lower bound on timestamp. */
@@ -41,6 +58,11 @@ export interface ListFilter {
   to?: string;
   includeDeleted?: boolean;
 }
+
+/** Every write takes the next value of the change counter (see migration 2 in db.ts). */
+const NEXT_SEQ = '(SELECT COALESCE(MAX(seq), 0) + 1 FROM readings)';
+
+export type ApplyResult = 'applied' | 'stale' | 'indicator-mismatch';
 
 /** Data access for readings. All SQL for the table lives here. */
 export function readingsRepo(db: Db, now: () => string = () => new Date().toISOString()) {
@@ -77,8 +99,8 @@ export function readingsRepo(db: Db, now: () => string = () => new Date().toISOS
     if (get(r.id)) return undefined;
     const t = now();
     db.prepare(
-      `INSERT INTO readings (id, indicator_id, value, timestamp, note, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO readings (id, indicator_id, value, timestamp, note, created_at, updated_at, seq)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ${NEXT_SEQ})`,
     ).run(r.id, r.indicatorId, r.value, r.timestamp, r.note ?? null, t, t);
     return get(r.id);
   }
@@ -92,21 +114,63 @@ export function readingsRepo(db: Db, now: () => string = () => new Date().toISOS
     if (!cur || cur.deletedAt) return undefined;
     const note = patch.note === undefined ? (cur.note ?? null) : patch.note;
     db.prepare(
-      'UPDATE readings SET value = ?, timestamp = ?, note = ?, updated_at = ? WHERE id = ?',
+      `UPDATE readings SET value = ?, timestamp = ?, note = ?, updated_at = ?, seq = ${NEXT_SEQ}
+       WHERE id = ?`,
     ).run(patch.value ?? cur.value, patch.timestamp ?? cur.timestamp, note, now(), id);
     return get(id);
   }
 
-  /** Soft delete (kept as a tombstone so a later sync can propagate it). */
+  /** Soft delete (kept as a tombstone so sync can propagate it). */
   function remove(id: string): boolean {
     const cur = get(id);
     if (!cur || cur.deletedAt) return false;
     const t = now();
-    db.prepare('UPDATE readings SET deleted_at = ?, updated_at = ? WHERE id = ?').run(t, t, id);
+    db.prepare(
+      `UPDATE readings SET deleted_at = ?, updated_at = ?, seq = ${NEXT_SEQ} WHERE id = ?`,
+    ).run(t, t, id);
     return true;
   }
 
-  return { get, list, insert, update, remove };
+  /**
+   * Apply one change from a device. Last write wins: the change is applied only if its
+   * updatedAt is newer than the stored version ('stale' otherwise, and the stored row stays).
+   * A newer change without deletedAt brings a deleted reading back.
+   */
+  function applyChange(c: SyncChange): ApplyResult {
+    const cur = get(c.id);
+    if (cur && cur.indicatorId !== c.indicatorId) return 'indicator-mismatch';
+    if (cur && !isNewer(c.updatedAt, cur.updatedAt)) return 'stale';
+    const note = c.note ?? null;
+    const deletedAt = c.deletedAt ?? null;
+    if (!cur) {
+      db.prepare(
+        `INSERT INTO readings
+           (id, indicator_id, value, timestamp, note, created_at, updated_at, deleted_at, seq)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${NEXT_SEQ})`,
+      ).run(c.id, c.indicatorId, c.value, c.timestamp, note, now(), c.updatedAt, deletedAt);
+    } else {
+      db.prepare(
+        `UPDATE readings
+         SET value = ?, timestamp = ?, note = ?, updated_at = ?, deleted_at = ?, seq = ${NEXT_SEQ}
+         WHERE id = ?`,
+      ).run(c.value, c.timestamp, note, c.updatedAt, deletedAt, c.id);
+    }
+    return 'applied';
+  }
+
+  /** Readings written after change number `since`, oldest change first, tombstones included. */
+  function changesSince(since: number): StoredReading[] {
+    const rows = db.prepare('SELECT * FROM readings WHERE seq > ? ORDER BY seq').all(since);
+    return (rows as unknown as Row[]).map(toReading);
+  }
+
+  /** The latest change number (0 for an empty table). */
+  function cursor(): number {
+    const row = db.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM readings').get();
+    return (row as { seq: number }).seq;
+  }
+
+  return { get, list, insert, update, remove, applyChange, changesSince, cursor };
 }
 
 export type ReadingsRepo = ReturnType<typeof readingsRepo>;
