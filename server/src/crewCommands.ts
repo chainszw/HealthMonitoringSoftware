@@ -24,6 +24,16 @@ export const DEMO_CREW: { id: string; name: string; role: CrewRole; seed?: numbe
   { id: 'charlie', name: 'Mira Lindqvist', role: 'astronaut', seed: 3 },
 ];
 
+/**
+ * Readings the demo stamps with the current time on every run, so the flight-surgeon overview
+ * shows different statuses: Sam amber (blood pressure), Mira red (short sleep) and amber (mood).
+ */
+export const DEMO_EVENTS: { crewId: string; indicatorId: string; value: number }[] = [
+  { crewId: 'bravo', indicatorId: 'bp_systolic', value: 128 },
+  { crewId: 'charlie', indicatorId: 'sleep_hours', value: 5.25 },
+  { crewId: 'charlie', indicatorId: 'mood', value: 2 },
+];
+
 const isRole = (x: string): x is CrewRole => (CREW_ROLES as string[]).includes(x);
 
 /** Run one command. Returns the process exit code. */
@@ -105,6 +115,16 @@ function demo(db: Db, crew: CrewRepo, print: (line: string) => void, now: () => 
       }
       const extra = added ? `  (+${added} readings)` : '';
       lines.push(`  ${d.id.padEnd(8)} ${d.name.padEnd(15)} ${d.role.padEnd(15)} ${token}${extra}`);
+    }
+    for (const e of DEMO_EVENTS) {
+      readings.applyChange(e.crewId, {
+        id: `demo-${e.indicatorId}`,
+        indicatorId: e.indicatorId,
+        value: e.value,
+        timestamp: t,
+        updatedAt: t,
+        note: 'Demo reading for the flight-surgeon overview',
+      });
     }
     db.exec('COMMIT');
   } catch (err) {

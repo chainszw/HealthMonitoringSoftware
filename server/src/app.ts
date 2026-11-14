@@ -2,10 +2,20 @@ import { randomUUID } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
-import type { CrewMember, SyncChange, SyncResponse } from '../../src/lib/syncProtocol';
+import { getIndicator } from '../../src/data/content';
+import { CURRENT_WINDOW_HOURS, getTrend } from '../../src/lib/insights';
+import type {
+  CrewMember,
+  CrewMemberOverviewResponse,
+  CrewOverviewResponse,
+  CrewTrendResponse,
+  SyncChange,
+  SyncResponse,
+} from '../../src/lib/syncProtocol';
 import { bearerToken } from './auth';
 import { crewRepo } from './crewRepo';
 import type { Db } from './db';
+import { buildCrewOverview, byUrgency } from './overview';
 import { readingsRepo, toSyncChange } from './readingsRepo';
 import { checkNewReading, checkPatch, checkSyncRequest, isIsoTimestamp, toIso } from './validate';
 
@@ -23,6 +33,14 @@ type Env = { Variables: { crew: CrewMember } };
 type Ctx = Context<Env>;
 
 const READ_ONLY = 'Flight surgeons have read-only access to crew readings.';
+const MAX_DAYS = 90;
+
+/** A whole number of days from the query string, 1–90, or the fallback when absent. */
+function parseDays(raw: string | undefined, fallback: number): number | undefined {
+  if (raw === undefined || raw === '') return fallback;
+  const days = Number(raw);
+  return Number.isInteger(days) && days >= 1 && days <= MAX_DAYS ? days : undefined;
+}
 
 /**
  * The HTTP API. Optional for the app: the frontend works offline from localStorage and syncs
@@ -88,6 +106,82 @@ export function createApp(db: Db, opts: AppOptions = {}) {
       ? c.json({ crew: crew.list() })
       : c.json({ error: 'Only flight surgeons can list the crew.' }, 403),
   );
+
+  // --- Flight-surgeon views. Built from the same rules as the crew app (src/lib/insights).
+
+  const badDays = (c: Ctx) =>
+    c.json({ error: `days must be a whole number from 1 to ${MAX_DAYS}.`, field: 'days' }, 400);
+
+  /** The astronaut a request may look at: flight surgeons any, astronauts only themselves. */
+  function astronautFor(c: Ctx, crewId: string): { member?: CrewMember; error?: Response } {
+    if (!isSurgeon(c) && crewId !== me(c).id) {
+      return { error: c.json({ error: 'Astronauts can only see their own data.' }, 403) };
+    }
+    const member = crew.get(crewId);
+    if (!member) return { error: c.json({ error: 'Crew member not found.' }, 404) };
+    if (member.role !== 'astronaut') {
+      return { error: c.json({ error: 'Only astronauts have health readings.' }, 404) };
+    }
+    return { member };
+  }
+
+  // Every astronaut at a glance, most urgent first. ?days= sets the alert window (default 7).
+  app.get('/crew/overview', (c) => {
+    if (!isSurgeon(c)) {
+      return c.json({ error: 'Only flight surgeons can see the crew overview.' }, 403);
+    }
+    const alertDays = parseDays(c.req.query('days'), 7);
+    if (alertDays === undefined) return badDays(c);
+    const at = new Date(now());
+    const items = crew
+      .list()
+      .filter((m) => m.role === 'astronaut')
+      .map((m) => buildCrewOverview(m, readings.list({ crewId: m.id }), at, alertDays))
+      .sort(byUrgency);
+    const response: CrewOverviewResponse = {
+      generatedAt: at.toISOString(),
+      currentWindowHours: CURRENT_WINDOW_HOURS,
+      alertDays,
+      crew: items,
+    };
+    return c.json(response);
+  });
+
+  // One astronaut's overview (flight surgeons, or the astronaut themselves).
+  app.get('/crew/:crewId/overview', (c) => {
+    const { member, error } = astronautFor(c, c.req.param('crewId'));
+    if (error) return error;
+    const alertDays = parseDays(c.req.query('days'), 7);
+    if (alertDays === undefined) return badDays(c);
+    const at = new Date(now());
+    const response: CrewMemberOverviewResponse = {
+      generatedAt: at.toISOString(),
+      currentWindowHours: CURRENT_WINDOW_HOURS,
+      alertDays,
+      overview: buildCrewOverview(member!, readings.list({ crewId: member!.id }), at, alertDays),
+    };
+    return c.json(response);
+  });
+
+  // Chart data for one indicator: same points as getTrend() in the app. ?days= (default 30).
+  app.get('/crew/:crewId/trend/:indicatorId', (c) => {
+    const { member, error } = astronautFor(c, c.req.param('crewId'));
+    if (error) return error;
+    const indicatorId = c.req.param('indicatorId');
+    if (!getIndicator(indicatorId)) {
+      return c.json({ error: `Unknown indicatorId "${indicatorId}".`, field: 'indicatorId' }, 404);
+    }
+    const days = parseDays(c.req.query('days'), 30);
+    if (days === undefined) return badDays(c);
+    const list = readings.list({ crewId: member!.id, indicatorId });
+    const response: CrewTrendResponse = {
+      crewId: member!.id,
+      indicatorId,
+      days,
+      points: getTrend(indicatorId, days, list, new Date(now())),
+    };
+    return c.json(response);
+  });
 
   // GET /readings?crewId=&indicatorId=&from=&to=&includeDeleted=true
   app.get('/readings', (c) => {

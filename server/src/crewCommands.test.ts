@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { generateSeed } from '../../src/data/seed';
 import { crewRepo, slugify } from './crewRepo';
-import { DEMO_CREW, runCrewCommand } from './crewCommands';
+import { DEMO_CREW, DEMO_EVENTS, runCrewCommand } from './crewCommands';
+import { buildCrewOverview } from './overview';
 import { openDb, type Db } from './db';
 import { readingsRepo } from './readingsRepo';
 
@@ -73,8 +74,9 @@ describe('crew command line', () => {
     // 30 days x 8 indicators, minus any of today's readings still in the future at NOW.
     const expected = (seed?: number) =>
       seed === undefined ? 0 : generateSeed(30, new Date(NOW), seed).length;
+    const events = (id: string) => DEMO_EVENTS.filter((e) => e.crewId === id).length;
     for (const m of DEMO_CREW) {
-      expect(readings.list({ crewId: m.id }).length, m.id).toBe(expected(m.seed));
+      expect(readings.list({ crewId: m.id }).length, m.id).toBe(expected(m.seed) + events(m.id));
     }
     expect(expected(1)).toBeGreaterThan(220);
     const alphaFirst = readings.list({ crewId: 'alpha' }).map((r) => r.value);
@@ -85,6 +87,35 @@ describe('crew command line', () => {
     const second = tokensIn(out);
     expect(second.some((t) => first.includes(t))).toBe(false);
     expect(readings.list({ crewId: 'alpha' })).toHaveLength(expected(1));
+  });
+});
+
+describe('demo crew for the flight-surgeon overview', () => {
+  it('gives the astronauts different current statuses', () => {
+    run('demo');
+    const readings = readingsRepo(db);
+    const crew = crewRepo(db);
+    const overview = (id: string) =>
+      buildCrewOverview(crew.get(id)!, readings.list({ crewId: id }), new Date(NOW), 7);
+    const charlie = overview('charlie');
+    expect(charlie.status).toBe('red');
+    expect(charlie.latest.sleep_hours).toMatchObject({ value: 5.25, level: 'red', current: true });
+    expect(charlie.latest.mood).toMatchObject({ value: 2, level: 'amber' });
+    expect(overview('bravo').latest.bp_systolic).toMatchObject({ value: 128, level: 'amber' });
+    expect(DEMO_EVENTS.some((e) => e.crewId === 'alpha')).toBe(false);
+  });
+
+  it('stamps the demo readings with the time of the latest run', () => {
+    run('demo');
+    const later = '2026-11-16T09:00:00.000Z';
+    runCrewCommand(
+      ['demo'],
+      db,
+      () => {},
+      () => later,
+    );
+    const r = readingsRepo(db).get('charlie', 'demo-sleep_hours')!;
+    expect(r.timestamp).toBe(later);
   });
 });
 

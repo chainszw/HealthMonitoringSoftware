@@ -128,7 +128,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - [x] Backend phases 0–1: `server/` skeleton, SQLite, readings CRUD API + tests (A)
 - [x] Backend phase 3: `POST /sync` + offline outbox and background sync in `src/lib` (A)
 - [x] Backend phase 2: crew members, roles (astronaut, flight surgeon), bearer tokens, `crew` CLI (A)
-- [ ] Backend phases 4–7: flight-surgeon overview, export, comms delay, deploy (A)
+- [x] Backend phase 4: flight-surgeon crew overview, per-member overview and trend endpoints (A)
+- [ ] Backend phases 5–7: export, comms delay, deploy (A)
 - [ ] Mission comms-delay feature beyond the description card (A/B)
 - [ ] Optional: PWA/service worker for true offline install (ask first)
 
@@ -145,6 +146,9 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - 2026-11-15: A: crew and roles (roadmap phase 2): bearer tokens (hashed), astronauts see only their own
   readings, flight surgeons read everyone's (read-only); `GET /me`, `GET /crew`; readings keyed by
   (crew, id); `npm run crew` CLI with a demo crew; `signIn`/`signOut`/`useSession()`; key `chc:v1:session`.
+- 2026-11-15: A: flight-surgeon views (roadmap phase 4): `GET /crew/overview`, `/crew/:id/overview`,
+  `/crew/:id/trend/:indicatorId` built on the shared insights; typed calls in `src/lib/crewApi.ts`;
+  demo crew now shows red/amber/green astronauts.
 
 ## Person A — status
 
@@ -156,10 +160,11 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `a/backend-readings` (roadmap phases 0–1): `server/` with `GET /health`, `GET /readings?indicatorId&from&to&includeDeleted`, `GET/PATCH/DELETE /readings/:id`, `POST /readings`. Built on `a/content-adapter`.
   - `a/sync` (roadmap phase 3): `POST /sync`; client outbox and background sync in `src/lib/storage.ts` and `src/lib/sync.ts`; `useReadings()` shared across components via `useSyncExternalStore`; `useSync()`. Built on `a/backend-readings`. Verified live: push, pull of another device's edit, and an offline reading catching up after a server restart.
   - `a/crew-auth` (roadmap phase 2): crew table, hashed bearer tokens, roles, per-crew readings, `GET /me`, `GET /crew`, `npm run crew` CLI, sign-in logic. Built on `a/sync`. Verified live: 401 without a token, astronauts isolated (404/403), flight surgeon reads all crews but gets 403 on writes.
+  - `a/surgeon-overview` (roadmap phase 4): `GET /crew/overview` (astronauts most urgent first: status, readiness, per-system status, latest per indicator, overdue checks, amber/red alerts), `GET /crew/:id/overview`, `GET /crew/:id/trend/:indicatorId`; `src/lib/crewApi.ts`. Built on `a/crew-auth`. Verified live with the demo crew: Mira red, Sam amber, Alex green.
 - **In progress:** none.
 - **Next:** backend roadmap in `docs/backend-roadmap.md`, one phase at a time:
-  1. Phase 4: flight-surgeon overview (`GET /crew/overview`: readiness and worst status per crew member, recent amber/red alerts).
-  2. Phases 5–7: export, comms-delay demo, deploy.
+  1. Phase 5: export (`GET /export.json`, `GET /export.csv`) for one astronaut or the whole crew.
+  2. Phases 6–7: comms-delay demo, deploy.
   - Still open on the logic side: readiness and routine prompts; mission risk emphasis.
 - **Decisions and gotchas:**
   - C owns the content.json format; the app-facing types stay stable and `src/data/content.ts` adapts. If C changes the format again, update `RawContent`/`normalizeContent`, not the components.
@@ -188,3 +193,4 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `useSync()` (from `src/lib/useReadings`) returns `{ status: 'disabled' | 'signed-out' | 'offline' | 'syncing' | 'synced' | 'error', pending, lastSyncedAt?, error? }`, if B wants to show sync state anywhere. `'disabled'` means no `VITE_API_URL`; `'signed-out'` means no valid crew token.
   - `useSession()` (from `src/lib/useReadings`) returns `{ session, signIn, signOut }` for a sign-in screen. `session` is `{ token, crew: { id, name, role } }` or null. `await signIn(token)` resolves to `{ ok: true, crew }` or `{ ok: false, error }` (a message to show). `signOut()` also clears the device's readings.
   - A frontend outside this repo can call the HTTP API directly (send `Authorization: Bearer <token>`): see `docs/backend-roadmap.md`.
+  - Flight-surgeon console: `fetchCrewOverview(apiUrl, token, alertDays?)`, `fetchCrewMemberOverview(...)`, `fetchCrewTrend(apiUrl, token, crewId, indicatorId, days?)` and `fetchMe(...)` from `src/lib/crewApi.ts`. Each resolves to `{ ok: true, data }` or `{ ok: false, status, error }` (never throws). Response types in `src/lib/syncProtocol.ts`; trend points have the same shape as `getTrend()`, so `TrendChart` can draw them.

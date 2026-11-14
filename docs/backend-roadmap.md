@@ -13,8 +13,8 @@ rules directly instead of copying them.
 | 1     | Readings API: list, get, create, edit, soft delete                 | Done   |
 | 2     | Crew members and roles (astronaut, flight surgeon), bearer tokens  | Done   |
 | 3     | `POST /sync` plus a sync queue behind `storage.ts` / `useReadings` | Done   |
-| 4     | Flight-surgeon endpoints: crew overview, per-crew trends           | Next   |
-| 5     | Export: `GET /export.json`, `GET /export.csv`                      |        |
+| 4     | Flight-surgeon endpoints: crew overview, per-crew trends           | Done   |
+| 5     | Export: `GET /export.json`, `GET /export.csv`                      | Next   |
 | 6     | Optional demo: hold sync replies for the mission's comms delay     |        |
 | 7     | Deploy (Render or Fly.io), `VITE_API_URL` on Vercel, CORS          |        |
 
@@ -64,17 +64,20 @@ Reading ids only need to be unique per crew member. Readings stored before phase
 All bodies are JSON. Errors return `{ "error": "..." }` (plus `"field"` for validation) with status
 400, 401 (no or bad token), 403 (role not allowed) or 404.
 
-| Method | Path            | Notes                                                                     |
-| ------ | --------------- | ------------------------------------------------------------------------- |
-| GET    | `/health`       | `{ ok: true, time }`; no token needed                                     |
-| GET    | `/me`           | `{ crew: { id, name, role } }` for the token                              |
-| GET    | `/crew`         | Flight surgeons: `{ crew: [...] }`                                        |
-| GET    | `/readings`     | Query: `crewId` (surgeons), `indicatorId`, `from`, `to`, `includeDeleted` |
-| GET    | `/readings/:id` | Includes soft-deleted readings; flight surgeons add `?crewId=`            |
-| POST   | `/readings`     | `{ id?, indicatorId, value, timestamp?, note? }` → 201                    |
-| PATCH  | `/readings/:id` | Any of `{ value, timestamp, note }`; `note: null` clears it               |
-| DELETE | `/readings/:id` | Soft delete → 204; the row is kept as a tombstone for sync                |
-| POST   | `/sync`         | Two-way sync for offline devices (see below)                              |
+| Method | Path                           | Notes                                                                     |
+| ------ | ------------------------------ | ------------------------------------------------------------------------- |
+| GET    | `/health`                      | `{ ok: true, time }`; no token needed                                     |
+| GET    | `/me`                          | `{ crew: { id, name, role } }` for the token                              |
+| GET    | `/crew`                        | Flight surgeons: `{ crew: [...] }`                                        |
+| GET    | `/crew/overview`               | Flight surgeons: every astronaut at a glance, most urgent first (below)   |
+| GET    | `/crew/:id/overview`           | One astronaut (flight surgeons, or that astronaut)                        |
+| GET    | `/crew/:id/trend/:indicatorId` | Chart points, `?days=` 1–90 (default 30)                                  |
+| GET    | `/readings`                    | Query: `crewId` (surgeons), `indicatorId`, `from`, `to`, `includeDeleted` |
+| GET    | `/readings/:id`                | Includes soft-deleted readings; flight surgeons add `?crewId=`            |
+| POST   | `/readings`                    | `{ id?, indicatorId, value, timestamp?, note? }` → 201                    |
+| PATCH  | `/readings/:id`                | Any of `{ value, timestamp, note }`; `note: null` clears it               |
+| DELETE | `/readings/:id`                | Soft delete → 204; the row is kept as a tombstone for sync                |
+| POST   | `/sync`                        | Two-way sync for offline devices (see below)                              |
 
 Rules:
 
@@ -85,6 +88,34 @@ Rules:
 - A reading's `indicatorId` can't be changed; delete it and create a new one.
 - Stored readings add `crewId`, `createdAt`, `updatedAt` and, once deleted, `deletedAt`.
 - Writes (`POST`, `PATCH`, `DELETE`, `/sync`) always act on the token owner's own readings.
+
+## Flight-surgeon views (phase 4)
+
+Types: `CrewOverviewResponse`, `CrewMemberOverviewResponse` and `CrewTrendResponse` in
+`src/lib/syncProtocol.ts`. Typed calls that never throw: `fetchMe`, `fetchCrewOverview`,
+`fetchCrewMemberOverview` and `fetchCrewTrend` in `src/lib/crewApi.ts`.
+
+`GET /crew/overview?days=7` returns `{ generatedAt, currentWindowHours: 48, alertDays, crew: [...] }`.
+Each astronaut in `crew` has:
+
+| Field           | Meaning                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| `crew`          | `{ id, name, role }`                                                                              |
+| `status`        | Worst current status: `red`, `amber`, `green`, or `unknown` (nothing current)                     |
+| `readiness`     | `{ score, streak }`, same rules as the crew app                                                   |
+| `systems`       | Status per body system, e.g. `{ heart: 'green', mind: 'red', bone: 'unknown' }`                   |
+| `latest`        | Per indicator: `{ readingId, value, timestamp, level, label?, current }`                          |
+| `overdue`       | Indicator ids with no reading in the last 48h (missed checks)                                     |
+| `alerts`        | Amber/red readings in the last `days` days, newest first (max 50), with name, unit and band label |
+| `lastReadingAt` | Newest reading time                                                                               |
+
+- Sorted most urgent first: red, amber, unknown, green; then by name.
+- Statuses come from the same shared code as the crew app (`getStatus`, `getSystemStatus`,
+  `getReadiness`, `getTrend` in `src/lib`), so the surgeon and the astronaut always see the same
+  colour.
+- A reading counts as current for 48h. Deleted readings are left out.
+- `npm run crew -- demo` stamps a few readings with the current time so the demo shows Mira
+  Lindqvist red, Sam Okafor amber and Alex Rivera green.
 
 ## Sync (phase 3)
 

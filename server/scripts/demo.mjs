@@ -42,6 +42,37 @@ async function step(title, method, path, body, token = TOKEN) {
   return text ? JSON.parse(text) : null;
 }
 
+const levelColor = { red: '\x1b[31m', amber: yellow(''), green: green(''), unknown: '' };
+const level = (l) =>
+  `${(levelColor[l] ?? '').replace('\x1b[0m', '')}${l.toUpperCase().padEnd(7)}\x1b[0m`;
+
+/** The flight surgeon's overview, printed as a short table instead of raw JSON. */
+async function surgeonOverview() {
+  const headers = { Authorization: `Bearer ${SURGEON}` };
+  const overview = await (await fetch(`${API}/crew/overview`, { headers })).json();
+  console.log(
+    `\n${cyan('GET /crew/overview')} [flight surgeon]  every astronaut, most urgent first`,
+  );
+  for (const item of overview.crew) {
+    const alerts = item.alerts
+      .slice(0, 2)
+      .map((a) => `${a.indicatorName} ${a.value} ${a.unit} (${a.level})`)
+      .join('; ');
+    console.log(
+      `  ${level(item.status)} ${item.crew.name.padEnd(15)} readiness ${String(item.readiness.score).padStart(3)}` +
+        `  overdue ${item.overdue.length}  ${alerts || 'no alerts'}`,
+    );
+  }
+  const first = overview.crew[0];
+  if (!first) return;
+  await pause(700);
+  const path = `/crew/${first.crew.id}/trend/sleep_hours?days=7`;
+  const trend = await (await fetch(API + path, { headers })).json();
+  console.log(`\n${cyan(`GET ${path}`)} [flight surgeon]  chart data for ${first.crew.name}`);
+  for (const p of trend.points)
+    console.log(`  ${p.label.padEnd(8)} ${String(p.value).padEnd(5)} ${level(p.level)}`);
+}
+
 const id = crypto.randomUUID();
 
 try {
@@ -87,6 +118,8 @@ try {
 
   await step('delete (soft delete)', 'DELETE', `/readings/${id}`);
   await step('deleted reading is kept as a tombstone for sync', 'GET', `/readings/${id}`);
+
+  if (SURGEON) await surgeonOverview();
   console.log(`\n${green('Demo finished.')}`);
 } catch (err) {
   console.error(yellow(`Could not reach ${API}. Is \`npm run dev:server\` running?`), err.message);
