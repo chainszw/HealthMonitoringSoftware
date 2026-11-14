@@ -18,7 +18,10 @@ flight surgeon informed.
 - Recharts (charts), Motion (animation; formerly Framer Motion, `import { motion } from 'motion/react'`)
 - React Router 8
 - Vitest (unit tests), ESLint + Prettier
-- **No backend, no auth.** Data lives in the browser's `localStorage`. Deployed to Vercel as a static site.
+- **Offline first.** Data lives in the browser's `localStorage` and the app needs no server. Deployed to
+  Vercel as a static site.
+- Optional API in `server/` (Hono + Node's built-in SQLite) that the app will sync with when it can reach it.
+  See [docs/backend-roadmap.md](docs/backend-roadmap.md).
 
 ## Run it
 
@@ -30,6 +33,8 @@ npm run lint         # ESLint
 npm run format       # Prettier (write); format:check to verify
 npm run build        # type-check + production build into dist/
 npm run preview      # serve the production build
+npm run dev:server   # optional API on http://localhost:8787 (SQLite file in server/data/)
+npm run demo:server  # walk through the API against a running server
 ```
 
 The app seeds a 30-day demo mission on first load. Use **Reset to demo data** on the Dashboard
