@@ -1,0 +1,97 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { generateSeed } from '../../src/data/seed';
+import { crewRepo, slugify } from './crewRepo';
+import { DEMO_CREW, runCrewCommand } from './crewCommands';
+import { openDb, type Db } from './db';
+import { readingsRepo } from './readingsRepo';
+
+const NOW = '2026-11-15T12:00:00.000Z';
+let db: Db;
+let out: string[];
+const run = (...args: string[]) => {
+  out = [];
+  return runCrewCommand(
+    args,
+    db,
+    (line) => out.push(line),
+    () => NOW,
+  );
+};
+const tokensIn = (lines: string[]): string[] =>
+  [...lines.join(' ').matchAll(/chc_[A-Za-z0-9_-]+/g)].map((m) => m[0]);
+
+beforeEach(() => {
+  db = openDb(':memory:');
+});
+
+describe('crew command line', () => {
+  it('adds crew members and prints their token once', () => {
+    expect(run('add', 'Alex Rivera', 'astronaut')).toBe(0);
+    const [token] = tokensIn(out);
+    expect(crewRepo(db).findByToken(token)).toEqual({
+      id: 'alex-rivera',
+      name: 'Alex Rivera',
+      role: 'astronaut',
+    });
+    expect(run('add', 'Alex Rivera', 'astronaut')).toBe(0);
+    expect(out[0]).toContain('alex-rivera-2');
+    expect(run('add', 'Dr. Jordan Lee', 'flight_surgeon', 'surgeon')).toBe(0);
+    expect(run('list')).toBe(0);
+    expect(out[0]).toMatch(/^surgeon\s+flight_surgeon\s+Dr\. Jordan Lee$/);
+    expect(out).toHaveLength(3);
+    expect(tokensIn(out)).toEqual([]);
+  });
+
+  it('refuses bad input', () => {
+    expect(run('add', 'Alex', 'pilot')).toBe(1);
+    expect(out[0]).toMatch(/Role must be/);
+    expect(run('add', 'Alex')).toBe(1);
+    run('add', 'Alex', 'astronaut', 'alex');
+    expect(run('add', 'Another', 'astronaut', 'alex')).toBe(1);
+    expect(out[0]).toMatch(/already taken/);
+    expect(run('add', 'Bad Id', 'astronaut', 'Bad Id!')).toBe(1);
+    expect(run('token', 'nobody')).toBe(1);
+    expect(run('launch')).toBe(1);
+    expect(run('help')).toBe(0);
+  });
+
+  it('replaces a token', () => {
+    run('add', 'Alex', 'astronaut', 'alex');
+    const [old] = tokensIn(out);
+    expect(run('token', 'alex')).toBe(0);
+    const [fresh] = tokensIn(out);
+    const crew = crewRepo(db);
+    expect(crew.findByToken(old)).toBeUndefined();
+    expect(crew.findByToken(fresh)?.id).toBe('alex');
+  });
+
+  it('creates a demo crew with readings, and refreshes tokens on a second run', () => {
+    expect(run('demo')).toBe(0);
+    const first = tokensIn(out);
+    expect(first).toHaveLength(DEMO_CREW.length);
+    const readings = readingsRepo(db);
+    // 30 days x 8 indicators, minus any of today's readings still in the future at NOW.
+    const expected = (seed?: number) =>
+      seed === undefined ? 0 : generateSeed(30, new Date(NOW), seed).length;
+    for (const m of DEMO_CREW) {
+      expect(readings.list({ crewId: m.id }).length, m.id).toBe(expected(m.seed));
+    }
+    expect(expected(1)).toBeGreaterThan(220);
+    const alphaFirst = readings.list({ crewId: 'alpha' }).map((r) => r.value);
+    const bravoFirst = readings.list({ crewId: 'bravo' }).map((r) => r.value);
+    expect(alphaFirst).not.toEqual(bravoFirst);
+
+    expect(run('demo')).toBe(0);
+    const second = tokensIn(out);
+    expect(second.some((t) => first.includes(t))).toBe(false);
+    expect(readings.list({ crewId: 'alpha' })).toHaveLength(expected(1));
+  });
+});
+
+describe('slugify', () => {
+  it('makes ids from names', () => {
+    expect(slugify('Dr. Jordan Lee')).toBe('dr-jordan-lee');
+    expect(slugify('  Ünal  Öz ')).toBe('unal-oz');
+    expect(slugify('!!!')).toBe('crew');
+  });
+});

@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { API_URL } from './apiConfig';
+import { API_TOKEN, API_URL } from './apiConfig';
+import { signIn, signOut } from './session';
 import {
   addReading,
   clearReadings,
   deleteReading,
   getReadingsSnapshot,
+  getSessionSnapshot,
   loadMission,
   resetToSeed,
   saveMission,
   subscribeReadings,
+  subscribeSession,
   updateReading,
   type NewReading,
   type ReadingPatch,
@@ -24,7 +27,7 @@ import type { MissionProfileId } from './types';
 export function useReadings() {
   const readings = useSyncExternalStore(subscribeReadings, getReadingsSnapshot);
   useEffect(() => {
-    startSync(API_URL);
+    startSync(API_URL, { defaultToken: API_TOKEN });
   }, []);
   const add = useCallback((r: NewReading) => {
     addReading(r);
@@ -42,6 +45,16 @@ export function useReadings() {
     clearReadings();
   }, []);
   return { readings, add, update, remove, reset, clear };
+}
+
+/**
+ * Who is signed in for sync, plus sign-in/out for a sign-in screen. `signIn(token)` resolves to
+ * `{ ok: true, crew }` or `{ ok: false, error }` (an error message to show).
+ */
+export function useSession() {
+  const session = useSyncExternalStore(subscribeSession, getSessionSnapshot);
+  const signInWithToken = useCallback((token: string) => signIn(API_URL, token), []);
+  return { session, signIn: signInWithToken, signOut };
 }
 
 /** Sync state for a status badge. `status` is 'disabled' when no server is configured. */

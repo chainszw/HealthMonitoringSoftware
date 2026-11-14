@@ -1,27 +1,23 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { SyncChange, SyncResponse } from '../../src/lib/syncProtocol';
-import { createApp } from './app';
-import { openDb } from './db';
 import type { StoredReading } from './readingsRepo';
+import { json, setupApi } from './testkit';
 
-let app: ReturnType<typeof createApp>;
+let api: ReturnType<typeof setupApi>;
 let clock: number;
 
 beforeEach(() => {
   clock = Date.parse('2026-11-15T08:00:00.000Z');
-  app = createApp(openDb(':memory:'), { now: () => new Date((clock += 1000)).toISOString() });
+  api = setupApi({ now: () => new Date((clock += 1000)).toISOString() });
 });
 
 type Reply = SyncResponse & { error?: string; field?: string };
 
-async function sync(since: number, changes: unknown[]) {
-  const res = await app.request('/sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ since, changes }),
-  });
-  return { status: res.status, body: (await res.json()) as Reply };
+async function syncAs(token: string, since: number, changes: unknown[]) {
+  const res = await api.as(token)('/sync', { method: 'POST', body: { since, changes } });
+  return { status: res.status, body: await json<Reply>(res) };
 }
+const sync = (since: number, changes: unknown[]) => syncAs(api.tokens.alpha, since, changes);
 
 const change = (over: Partial<SyncChange> = {}): SyncChange => ({
   id: 'r1',
@@ -32,9 +28,8 @@ const change = (over: Partial<SyncChange> = {}): SyncChange => ({
   ...over,
 });
 
-async function stored(id: string): Promise<StoredReading> {
-  return ((await (await app.request(`/readings/${id}`)).json()) as { reading: StoredReading })
-    .reading;
+async function stored(id: string, token = api.tokens.alpha): Promise<StoredReading> {
+  return (await json<{ reading: StoredReading }>(api.as(token)(`/readings/${id}`))).reading;
 }
 
 describe('POST /sync', () => {
@@ -48,10 +43,9 @@ describe('POST /sync', () => {
   it('returns only what changed after the cursor', async () => {
     const first = await sync(0, [change()]);
     expect((await sync(first.body.cursor, [])).body.changes).toEqual([]);
-    await app.request('/readings', {
+    await api.as(api.tokens.alpha)('/readings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: 'r2', indicatorId: 'mood', value: 4 }),
+      body: { id: 'r2', indicatorId: 'mood', value: 4 },
     });
     const later = await sync(first.body.cursor, []);
     expect(later.body.changes.map((c) => c.id)).toEqual(['r2']);
@@ -73,7 +67,7 @@ describe('POST /sync', () => {
     const t = '2026-11-15T07:10:00.000Z';
     await sync(1, [change({ updatedAt: t, deletedAt: t })]);
     expect((await stored('r1')).deletedAt).toBe(t);
-    const list = (await (await app.request('/readings')).json()) as { readings: unknown[] };
+    const list = await json<{ readings: unknown[] }>(api.as(api.tokens.alpha)('/readings'));
     expect(list.readings).toEqual([]);
 
     await sync(2, [change({ value: 75, updatedAt: '2026-11-15T07:20:00.000Z' })]);
@@ -122,15 +116,11 @@ describe('POST /sync', () => {
   });
 
   it('advances the cursor for REST writes too', async () => {
-    const json = (method: string, body: unknown) => ({
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    await app.request('/readings', json('POST', { id: 'x', indicatorId: 'mood', value: 3 }));
-    await app.request('/readings/x', json('PATCH', { value: 4 }));
+    const req = api.as(api.tokens.alpha);
+    await req('/readings', { method: 'POST', body: { id: 'x', indicatorId: 'mood', value: 3 } });
+    await req('/readings/x', { method: 'PATCH', body: { value: 4 } });
     expect((await sync(0, [])).body.cursor).toBe(2);
-    await app.request('/readings/x', { method: 'DELETE' });
+    await req('/readings/x', { method: 'DELETE' });
     const { body } = await sync(2, []);
     expect(body.cursor).toBe(3);
     expect(body.changes[0]).toMatchObject({ id: 'x', value: 4 });
@@ -146,11 +136,38 @@ describe('POST /sync', () => {
     );
     expect(tooMany.status).toBe(400);
     expect(tooMany.body.field).toBe('changes');
-    const notArray = await app.request('/sync', {
+    const notArray = await api.as(api.tokens.alpha)('/sync', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ since: 0, changes: 'x' }),
+      body: { since: 0, changes: 'x' },
     });
     expect(notArray.status).toBe(400);
+  });
+});
+
+describe('POST /sync per crew member', () => {
+  it("keeps each astronaut's readings separate, even with the same ids", async () => {
+    await syncAs(api.tokens.alpha, 0, [change({ value: 70 })]);
+    const bravo = await syncAs(api.tokens.bravo, 0, [change({ value: 99 })]);
+    expect(bravo.body.changes).toEqual([change({ value: 99 })]);
+    expect((await stored('r1', api.tokens.alpha)).value).toBe(70);
+    expect((await stored('r1', api.tokens.bravo)).value).toBe(99);
+
+    const alpha = await syncAs(api.tokens.alpha, 1, []);
+    expect(alpha.body.changes).toEqual([]);
+    expect(alpha.body.cursor).toBe(2);
+  });
+
+  it('is not available to flight surgeons', async () => {
+    const res = await syncAs(api.tokens.surgeon, 0, []);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/astronauts/);
+  });
+
+  it('needs a token', async () => {
+    const res = await api.as(undefined)('/sync', {
+      method: 'POST',
+      body: { since: 0, changes: [] },
+    });
+    expect(res.status).toBe(401);
   });
 });

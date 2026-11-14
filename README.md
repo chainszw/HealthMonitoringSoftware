@@ -34,11 +34,13 @@ npm run format       # Prettier (write); format:check to verify
 npm run build        # type-check + production build into dist/
 npm run preview      # serve the production build
 npm run dev:server   # optional API on http://localhost:8787 (SQLite file in server/data/)
-npm run demo:server  # walk through the API against a running server
+npm run demo:server  # walk through the API (set API_TOKEN to a crew token first)
+npm run crew -- demo # demo crew with tokens: 1 flight surgeon, 3 astronauts
 ```
 
 Sync is off by default. To try it, copy `.env.example` to `.env.local`, run `npm run dev:server`,
-then restart `npm run dev`. See [docs/backend-roadmap.md](docs/backend-roadmap.md).
+then restart `npm run dev`. Each crew member signs in with a token from `npm run crew`. See
+[docs/backend-roadmap.md](docs/backend-roadmap.md).
 
 The app seeds a 30-day demo mission on first load. Use **Reset to demo data** on the Dashboard
 to restore it.

@@ -18,8 +18,8 @@ describe('openDb', () => {
     const path = join(dir, 'nested', 'test.db');
     const db = openDb(path);
     db.prepare(
-      `INSERT INTO readings (id, indicator_id, value, timestamp, created_at, updated_at, seq)
-       VALUES ('x', 'mood', 4, 't', 't', 't', 1)`,
+      `INSERT INTO readings (crew_id, id, indicator_id, value, timestamp, created_at, updated_at, seq)
+       VALUES ('alpha', 'x', 'mood', 4, 't', 't', 't', 1)`,
     ).run();
     db.close();
     const again = openDb(path);
@@ -48,6 +48,31 @@ describe('openDb', () => {
       { id: 'a', seq: 1 },
       { id: 'b', seq: 2 },
     ]);
+    db.close();
+  });
+  it('upgrades a version-2 database: old rows go to crew "local", ids are unique per crew', () => {
+    const path = join(dir, 'v2.db');
+    const v2 = new DatabaseSync(path);
+    v2.exec(MIGRATIONS[0]);
+    v2.exec(MIGRATIONS[1]);
+    v2.exec('PRAGMA user_version = 2');
+    v2.prepare(
+      `INSERT INTO readings (id, indicator_id, value, timestamp, created_at, updated_at, seq)
+       VALUES ('x', 'mood', 4, 't', 't', 't', 7)`,
+    ).run();
+    v2.close();
+
+    const db = openDb(path);
+    expect(db.prepare('SELECT crew_id, id, seq FROM readings').all()).toEqual([
+      { crew_id: 'local', id: 'x', seq: 7 },
+    ]);
+    db.prepare(
+      `INSERT INTO readings (crew_id, id, indicator_id, value, timestamp, created_at, updated_at)
+       VALUES ('alpha', 'x', 'mood', 3, 't', 't', 't')`,
+    ).run();
+    expect(db.prepare('SELECT count(*) AS n FROM readings WHERE id = ?').get('x')).toEqual({
+      n: 2,
+    });
     db.close();
   });
 });

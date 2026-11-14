@@ -1,5 +1,5 @@
 import { generateSeed } from '../data/seed';
-import type { SyncChange } from './syncProtocol';
+import type { CrewMember, SyncChange } from './syncProtocol';
 import type { MissionProfileId, Reading } from './types';
 
 // The ONLY module that touches localStorage. Bump the version prefix if the
@@ -10,6 +10,8 @@ export const MISSION_KEY = 'chc:v1:mission';
 export const OUTBOX_KEY = 'chc:v1:outbox';
 /** Sync cursor and the time of the last successful sync. */
 export const SYNC_KEY = 'chc:v1:sync';
+/** The crew member signed in on this device and their sync token. */
+export const SESSION_KEY = 'chc:v1:session';
 const DEFAULT_MISSION: MissionProfileId = 'iss';
 
 // Fallback when localStorage is unavailable (private mode, blocked, tests).
@@ -36,6 +38,18 @@ function write(key: string, value: string): void {
   memory.set(key, value);
 }
 
+function remove(key: string): void {
+  try {
+    if (globalThis.localStorage) {
+      globalThis.localStorage.removeItem(key);
+      return;
+    }
+  } catch {
+    /* fall through to memory */
+  }
+  memory.delete(key);
+}
+
 function readJson(key: string): unknown {
   const raw = read(key);
   if (raw === null) return undefined;
@@ -51,6 +65,7 @@ function readJson(key: string): unknown {
 type Listener = () => void;
 const readingListeners = new Set<Listener>();
 const outboxListeners = new Set<Listener>();
+const sessionListeners = new Set<Listener>();
 let readingsCache: Reading[] | null = null;
 
 const notify = (listeners: Set<Listener>) => listeners.forEach((l) => l());
@@ -92,6 +107,10 @@ const win = (
 win?.addEventListener('storage', (e) => {
   if (e.key === READINGS_KEY) refreshReadings();
   if (e.key === OUTBOX_KEY) notify(outboxListeners);
+  if (e.key === SESSION_KEY) {
+    sessionCache = undefined;
+    notify(sessionListeners);
+  }
 });
 
 // --- Readings ----------------------------------------------------------------
@@ -260,6 +279,44 @@ export function saveSyncState(state: SyncState): void {
 function resetSync(): void {
   saveOutbox({});
   saveSyncState({ cursor: 0 });
+}
+
+/** Pull everything again on the next sync, keeping changes that are still waiting to be sent. */
+export function resetSyncCursor(): void {
+  saveSyncState({ cursor: 0 });
+}
+
+// --- Session (who is signed in for sync) ------------------------------------------
+
+export interface Session {
+  token: string;
+  crew: CrewMember;
+}
+
+let sessionCache: Session | null | undefined;
+
+export function loadSession(): Session | null {
+  const s = readJson(SESSION_KEY) as Partial<Session> | undefined;
+  return typeof s?.token === 'string' && typeof s.crew?.id === 'string' ? (s as Session) : null;
+}
+
+/** Cached session for rendering (same object until it changes); null when signed out. */
+export function getSessionSnapshot(): Session | null {
+  if (sessionCache === undefined) sessionCache = loadSession();
+  return sessionCache;
+}
+
+export function saveSession(session: Session | null): void {
+  if (session) write(SESSION_KEY, JSON.stringify(session));
+  else remove(SESSION_KEY);
+  sessionCache = session;
+  notify(sessionListeners);
+}
+
+/** Call `listener` whenever the session changes. Returns an unsubscribe function. */
+export function subscribeSession(listener: Listener): () => void {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
 }
 
 // --- Mission -------------------------------------------------------------------

@@ -3,14 +3,19 @@ import { isNewer } from '../../src/lib/syncProtocol';
 import type { Reading } from '../../src/lib/types';
 import type { Db } from './db';
 
+// Every reading belongs to one crew member: rows are keyed by (crew_id, id), and every
+// function except list() and cursor() takes the crew id first.
+
 /** A stored reading: the shared Reading shape plus server bookkeeping. */
 export interface StoredReading extends Reading {
+  crewId: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
 }
 
 interface Row {
+  crew_id: string;
   id: string;
   indicator_id: string;
   value: number;
@@ -25,6 +30,7 @@ interface Row {
 function toReading(r: Row): StoredReading {
   const out: StoredReading = {
     id: r.id,
+    crewId: r.crew_id,
     indicatorId: r.indicator_id,
     value: r.value,
     timestamp: r.timestamp,
@@ -51,6 +57,8 @@ export function toSyncChange(r: StoredReading): SyncChange {
 }
 
 export interface ListFilter {
+  /** One crew member's readings; omit for everyone's (flight surgeons). */
+  crewId?: string;
   indicatorId?: string;
   /** Inclusive ISO lower bound on timestamp. */
   from?: string;
@@ -59,85 +67,84 @@ export interface ListFilter {
   includeDeleted?: boolean;
 }
 
-/** Every write takes the next value of the change counter (see migration 2 in db.ts). */
+/** Every write takes the next value of the global change counter (see migration 2 in db.ts). */
 const NEXT_SEQ = '(SELECT COALESCE(MAX(seq), 0) + 1 FROM readings)';
 
 export type ApplyResult = 'applied' | 'stale' | 'indicator-mismatch';
 
 /** Data access for readings. All SQL for the table lives here. */
 export function readingsRepo(db: Db, now: () => string = () => new Date().toISOString()) {
-  const getStmt = db.prepare('SELECT * FROM readings WHERE id = ?');
+  const getStmt = db.prepare('SELECT * FROM readings WHERE crew_id = ? AND id = ?');
 
-  function get(id: string): StoredReading | undefined {
-    const row = getStmt.get(id) as Row | undefined;
+  function get(crewId: string, id: string): StoredReading | undefined {
+    const row = getStmt.get(crewId, id) as Row | undefined;
     return row ? toReading(row) : undefined;
   }
 
   function list(filter: ListFilter = {}): StoredReading[] {
     const where: string[] = [];
     const params: string[] = [];
+    const add = (sql: string, value: string) => {
+      where.push(sql);
+      params.push(value);
+    };
     if (!filter.includeDeleted) where.push('deleted_at IS NULL');
-    if (filter.indicatorId) {
-      where.push('indicator_id = ?');
-      params.push(filter.indicatorId);
-    }
-    if (filter.from) {
-      where.push('timestamp >= ?');
-      params.push(filter.from);
-    }
-    if (filter.to) {
-      where.push('timestamp <= ?');
-      params.push(filter.to);
-    }
+    if (filter.crewId) add('crew_id = ?', filter.crewId);
+    if (filter.indicatorId) add('indicator_id = ?', filter.indicatorId);
+    if (filter.from) add('timestamp >= ?', filter.from);
+    if (filter.to) add('timestamp <= ?', filter.to);
     const sql = `SELECT * FROM readings ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-                 ORDER BY timestamp, id`;
+                 ORDER BY timestamp, crew_id, id`;
     return (db.prepare(sql).all(...params) as unknown as Row[]).map(toReading);
   }
 
-  /** Insert a new reading. Returns undefined if the id already exists. */
-  function insert(r: Reading): StoredReading | undefined {
-    if (get(r.id)) return undefined;
+  /** Insert a new reading. Returns undefined if this crew member already has the id. */
+  function insert(crewId: string, r: Reading): StoredReading | undefined {
+    if (get(crewId, r.id)) return undefined;
     const t = now();
     db.prepare(
-      `INSERT INTO readings (id, indicator_id, value, timestamp, note, created_at, updated_at, seq)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ${NEXT_SEQ})`,
-    ).run(r.id, r.indicatorId, r.value, r.timestamp, r.note ?? null, t, t);
-    return get(r.id);
+      `INSERT INTO readings
+         (crew_id, id, indicator_id, value, timestamp, note, created_at, updated_at, seq)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${NEXT_SEQ})`,
+    ).run(crewId, r.id, r.indicatorId, r.value, r.timestamp, r.note ?? null, t, t);
+    return get(crewId, r.id);
   }
 
   /** Change value, timestamp and/or note. `note: null` clears it. Deleted readings are not updated. */
   function update(
+    crewId: string,
     id: string,
     patch: { value?: number; timestamp?: string; note?: string | null },
   ): StoredReading | undefined {
-    const cur = get(id);
+    const cur = get(crewId, id);
     if (!cur || cur.deletedAt) return undefined;
     const note = patch.note === undefined ? (cur.note ?? null) : patch.note;
     db.prepare(
       `UPDATE readings SET value = ?, timestamp = ?, note = ?, updated_at = ?, seq = ${NEXT_SEQ}
-       WHERE id = ?`,
-    ).run(patch.value ?? cur.value, patch.timestamp ?? cur.timestamp, note, now(), id);
-    return get(id);
+       WHERE crew_id = ? AND id = ?`,
+    ).run(patch.value ?? cur.value, patch.timestamp ?? cur.timestamp, note, now(), crewId, id);
+    return get(crewId, id);
   }
 
   /** Soft delete (kept as a tombstone so sync can propagate it). */
-  function remove(id: string): boolean {
-    const cur = get(id);
+  function remove(crewId: string, id: string): boolean {
+    const cur = get(crewId, id);
     if (!cur || cur.deletedAt) return false;
     const t = now();
     db.prepare(
-      `UPDATE readings SET deleted_at = ?, updated_at = ?, seq = ${NEXT_SEQ} WHERE id = ?`,
-    ).run(t, t, id);
+      `UPDATE readings SET deleted_at = ?, updated_at = ?, seq = ${NEXT_SEQ}
+       WHERE crew_id = ? AND id = ?`,
+    ).run(t, t, crewId, id);
     return true;
   }
 
   /**
-   * Apply one change from a device. Last write wins: the change is applied only if its
-   * updatedAt is newer than the stored version ('stale' otherwise, and the stored row stays).
+   * Apply one change from a crew member's device. Last write wins: the change is applied only if
+   * its updatedAt is newer than the stored version ('stale' otherwise, and the stored row stays).
    * A newer change without deletedAt brings a deleted reading back.
    */
-  function applyChange(c: SyncChange): ApplyResult {
-    const cur = get(c.id);
+  function applyChange(crewId: string, c: SyncChange): ApplyResult {
+    const cur = get(crewId, c.id);
     if (cur && cur.indicatorId !== c.indicatorId) return 'indicator-mismatch';
     if (cur && !isNewer(c.updatedAt, cur.updatedAt)) return 'stale';
     const note = c.note ?? null;
@@ -145,26 +152,28 @@ export function readingsRepo(db: Db, now: () => string = () => new Date().toISOS
     if (!cur) {
       db.prepare(
         `INSERT INTO readings
-           (id, indicator_id, value, timestamp, note, created_at, updated_at, deleted_at, seq)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${NEXT_SEQ})`,
-      ).run(c.id, c.indicatorId, c.value, c.timestamp, note, now(), c.updatedAt, deletedAt);
+           (crew_id, id, indicator_id, value, timestamp, note, created_at, updated_at, deleted_at, seq)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${NEXT_SEQ})`,
+      ).run(crewId, c.id, c.indicatorId, c.value, c.timestamp, note, now(), c.updatedAt, deletedAt);
     } else {
       db.prepare(
         `UPDATE readings
          SET value = ?, timestamp = ?, note = ?, updated_at = ?, deleted_at = ?, seq = ${NEXT_SEQ}
-         WHERE id = ?`,
-      ).run(c.value, c.timestamp, note, c.updatedAt, deletedAt, c.id);
+         WHERE crew_id = ? AND id = ?`,
+      ).run(c.value, c.timestamp, note, c.updatedAt, deletedAt, crewId, c.id);
     }
     return 'applied';
   }
 
-  /** Readings written after change number `since`, oldest change first, tombstones included. */
-  function changesSince(since: number): StoredReading[] {
-    const rows = db.prepare('SELECT * FROM readings WHERE seq > ? ORDER BY seq').all(since);
+  /** A crew member's readings written after change number `since`, oldest change first. */
+  function changesSince(crewId: string, since: number): StoredReading[] {
+    const rows = db
+      .prepare('SELECT * FROM readings WHERE crew_id = ? AND seq > ? ORDER BY seq')
+      .all(crewId, since);
     return (rows as unknown as Row[]).map(toReading);
   }
 
-  /** The latest change number (0 for an empty table). */
+  /** The latest change number across all crew (0 for an empty table). */
   function cursor(): number {
     const row = db.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM readings').get();
     return (row as { seq: number }).seq;

@@ -23,6 +23,38 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE readings ADD COLUMN seq INTEGER NOT NULL DEFAULT 0;
    UPDATE readings SET seq = rowid;
    CREATE INDEX readings_seq ON readings (seq);`,
+  // 3: crew members with hashed tokens; readings keyed by (crew_id, id) so each crew member's
+  // ids are separate. Rows from before this migration keep crew_id 'local'.
+  `CREATE TABLE crew (
+     id         TEXT PRIMARY KEY,
+     name       TEXT NOT NULL,
+     role       TEXT NOT NULL CHECK (role IN ('astronaut', 'flight_surgeon')),
+     token_hash TEXT NOT NULL UNIQUE,
+     created_at TEXT NOT NULL
+   );
+   CREATE TABLE readings_v3 (
+     crew_id      TEXT NOT NULL,
+     id           TEXT NOT NULL,
+     indicator_id TEXT NOT NULL,
+     value        REAL NOT NULL,
+     timestamp    TEXT NOT NULL,
+     note         TEXT,
+     created_at   TEXT NOT NULL,
+     updated_at   TEXT NOT NULL,
+     deleted_at   TEXT,
+     seq          INTEGER NOT NULL DEFAULT 0,
+     PRIMARY KEY (crew_id, id)
+   );
+   INSERT INTO readings_v3 (crew_id, id, indicator_id, value, timestamp, note,
+                            created_at, updated_at, deleted_at, seq)
+     SELECT crew_id, id, indicator_id, value, timestamp, note,
+            created_at, updated_at, deleted_at, seq
+     FROM readings;
+   DROP TABLE readings;
+   ALTER TABLE readings_v3 RENAME TO readings;
+   CREATE INDEX readings_seq ON readings (seq);
+   CREATE INDEX readings_crew_seq ON readings (crew_id, seq);
+   CREATE INDEX readings_crew_indicator_time ON readings (crew_id, indicator_id, timestamp);`,
 ];
 
 export type Db = DatabaseSync;

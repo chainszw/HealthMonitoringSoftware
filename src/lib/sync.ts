@@ -1,11 +1,13 @@
 import {
   loadOutbox,
   loadReadings,
+  loadSession,
   loadSyncState,
   saveOutbox,
   saveReadings,
   saveSyncState,
   subscribeOutbox,
+  subscribeSession,
   type Outbox,
 } from './storage';
 import { isNewer, type SyncChange, type SyncRequest, type SyncResponse } from './syncProtocol';
@@ -15,10 +17,10 @@ import type { Reading } from './types';
 // offline: changes wait in the outbox (storage.ts) and are sent when the server is reachable.
 // Conflicts: the newest updatedAt wins; on a tie the server's copy wins, so devices converge.
 
-export type SyncStatusKind = 'disabled' | 'offline' | 'syncing' | 'synced' | 'error';
+export type SyncStatusKind = 'disabled' | 'signed-out' | 'offline' | 'syncing' | 'synced' | 'error';
 
 export interface SyncStatus {
-  /** 'disabled' = no server configured (VITE_API_URL unset). */
+  /** 'disabled' = no server configured (VITE_API_URL unset); 'signed-out' = no valid crew token. */
   status: SyncStatusKind;
   /** Local changes waiting to be sent. */
   pending: number;
@@ -95,22 +97,37 @@ export function removeAcked(outbox: Outbox, sent: SyncChange[]): Outbox | null {
 
 export type FetchLike = (
   url: string,
-  init: { method: 'POST'; headers: Record<string, string>; body: string; signal?: AbortSignal },
+  init: {
+    method: 'GET' | 'POST';
+    headers: Record<string, string>;
+    body?: string;
+    signal?: AbortSignal;
+  },
 ) => Promise<Response>;
+
+export const defaultFetch: FetchLike = (url, init) => fetch(url, init);
+
+export interface SyncNowOptions {
+  fetchImpl?: FetchLike;
+  timeoutMs?: number;
+  /** Token to use when nobody is signed in (VITE_API_TOKEN, for demos). */
+  defaultToken?: string;
+}
 
 const browserOffline = () =>
   (globalThis as { navigator?: { onLine?: boolean } }).navigator?.onLine === false;
 
 /**
- * Send the outbox and merge the server's reply. Never throws: network problems and timeouts
- * report 'offline' and keep the outbox for the next try.
+ * Send the outbox and merge the server's reply, as the signed-in crew member. Never throws:
+ * network problems and timeouts report 'offline' and keep the outbox for the next try.
  */
 export async function syncNow(
   apiUrl: string,
-  fetchImpl: FetchLike = (url, init) => fetch(url, init),
-  timeoutMs = 20_000,
+  { fetchImpl = defaultFetch, timeoutMs = 20_000, defaultToken }: SyncNowOptions = {},
 ): Promise<Omit<SyncStatus, 'pending'>> {
   const { cursor, lastSyncedAt } = loadSyncState();
+  const token = loadSession()?.token ?? defaultToken;
+  if (!token) return { status: 'signed-out', lastSyncedAt };
   if (browserOffline()) return { status: 'offline', lastSyncedAt };
   const sent = Object.values(loadOutbox());
   const request: SyncRequest = { since: cursor, changes: sent };
@@ -119,7 +136,7 @@ export async function syncNow(
   try {
     res = await fetchImpl(`${apiUrl}/sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(request),
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -128,7 +145,8 @@ export async function syncNow(
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
-    return { status: 'error', lastSyncedAt, error: body.error ?? `Server error ${res.status}.` };
+    const error = body.error ?? `Server error ${res.status}.`;
+    return { status: res.status === 401 ? 'signed-out' : 'error', lastSyncedAt, error };
   }
   const data = (await res.json().catch(() => null)) as SyncResponse | null;
   if (!data || !Array.isArray(data.changes) || typeof data.cursor !== 'number') {
@@ -199,6 +217,8 @@ export interface SyncOptions {
   /** Wait this long after a local change before sending, to batch quick edits. */
   debounceMs?: number;
   fetchImpl?: FetchLike;
+  /** Token to use when nobody is signed in (VITE_API_TOKEN, for demos). */
+  defaultToken?: string;
 }
 
 interface EventHost {
@@ -217,7 +237,7 @@ export function startSync(apiUrl: string, opts: SyncOptions = {}): () => void {
   if (!apiUrl) return () => {};
   if (stopRunning) return stopRunning;
   ensureStatusReady();
-  const { intervalMs = 30_000, debounceMs = 1_000, fetchImpl } = opts;
+  const { intervalMs = 30_000, debounceMs = 1_000, fetchImpl, defaultToken } = opts;
   let inFlight = false;
   let again = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -230,7 +250,7 @@ export function startSync(apiUrl: string, opts: SyncOptions = {}): () => void {
     inFlight = true;
     setStatus({ ...status, status: 'syncing' });
     try {
-      const result = await syncNow(apiUrl, fetchImpl);
+      const result = await syncNow(apiUrl, { fetchImpl, defaultToken });
       setStatus({ ...result, pending: pendingCount() });
     } finally {
       inFlight = false;
@@ -248,6 +268,7 @@ export function startSync(apiUrl: string, opts: SyncOptions = {}): () => void {
   const unsubscribe = subscribeOutbox(() => {
     if (pendingCount() > 0) schedule(debounceMs);
   });
+  const unsubscribeSession = subscribeSession(() => schedule(0));
   const interval = setInterval(() => schedule(0), intervalMs);
   const host = (globalThis as { window?: EventHost }).window;
   const now = () => schedule(0);
@@ -261,6 +282,7 @@ export function startSync(apiUrl: string, opts: SyncOptions = {}): () => void {
     clearTimeout(timer);
     clearInterval(interval);
     unsubscribe();
+    unsubscribeSession();
     host?.removeEventListener('online', now);
     host?.removeEventListener('focus', now);
     host?.removeEventListener('offline', offline);

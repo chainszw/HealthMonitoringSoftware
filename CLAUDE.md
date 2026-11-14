@@ -29,11 +29,14 @@ npm run lint       # ESLint (flat config, eslint.config.js)
 npm run format     # Prettier write (format:check to verify)
 npm run build      # tsc -b (app + server) && vite build → dist/
 npm run dev:server # API on :8787 (tsx watch); env PORT, DB_PATH (server/data/chc.db), CORS_ORIGINS
-npm run demo:server # walk through the API against a running server
+npm run demo:server # walk through the API (needs env API_TOKEN, optional SURGEON_TOKEN)
+npm run crew -- list|add "<name>" <astronaut|flight_surgeon> [id]|token <id>|demo  # crew + tokens
 ```
 
-Sync is off by default. To turn it on locally, copy `.env.example` to `.env.local`
-(`VITE_API_URL=http://localhost:8787`) and run `npm run dev:server` next to `npm run dev`.
+Sync is off by default. To turn it on locally: copy `.env.example` to `.env.local`
+(`VITE_API_URL=http://localhost:8787`), run `npm run dev:server` next to `npm run dev`, and get a
+crew token with `npm run crew -- demo` (a sign-in screen calls `signIn(token)`; for quick local
+tests set `VITE_API_TOKEN` instead).
 
 Before committing, run `npm run lint && npm test && npm run build && npm run format:check`.
 
@@ -49,12 +52,12 @@ rules are shared, never copied.
 
 ## Layout & ownership
 
-| Owner         | Files                                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------------------- |
-| A: logic/data | `src/lib/*` (types, status, storage, readings, useReadings, tests), `src/data/seed.ts`, `src/data/content.ts` |
-| B: visual/UX  | `src/components/*`, `src/pages/*`, `src/index.css`, `src/App.tsx`, `public/`                                  |
-| C: content    | `src/data/content.json`, README pitch, write-up                                                               |
-| A: backend    | `server/*` (db, readingsRepo, validate, app, index, tests, scripts), `docs/backend-roadmap.md`                |
+| Owner         | Files                                                                                                                   |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| A: logic/data | `src/lib/*` (types, status, storage, readings, useReadings, tests), `src/data/seed.ts`, `src/data/content.ts`           |
+| B: visual/UX  | `src/components/*`, `src/pages/*`, `src/index.css`, `src/App.tsx`, `public/`                                            |
+| C: content    | `src/data/content.json`, README pitch, write-up                                                                         |
+| A: backend    | `server/*` (db, readingsRepo, crewRepo, auth, validate, app, index, crewCli, tests, scripts), `docs/backend-roadmap.md` |
 
 Routes: `/` Dashboard, `/log`, `/body`, `/trends` (Trends is lazy-loaded because Recharts is large).
 The mission profile is owned by `Layout` and passed to pages through `useOutletContext<{ mission }>()`.
@@ -83,10 +86,12 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   outside all bands → red.
 - `validateValue(indicator, raw)` → `{ ok: true, value } | { ok: false, error }`. Run it before saving a reading.
 - localStorage keys: `chc:v1:readings`, `chc:v1:mission`, `chc:v1:outbox` (changes not yet sent to the
-  server, latest per id), `chc:v1:sync` ({ cursor, lastSyncedAt }). Bump `v1` if the Reading shape changes
-  incompatibly. Old ids `glucose`/`temperature` are migrated on load.
-- Sync wire format (`src/lib/syncProtocol.ts`, shared by app and server): `SyncChange` = Reading +
-  `updatedAt` + `deletedAt?`; `POST /sync { since, changes }` → `{ changes, cursor, rejected }`.
+  server, latest per id), `chc:v1:sync` ({ cursor, lastSyncedAt }), `chc:v1:session` ({ token, crew }:
+  who is signed in for sync). Bump `v1` if the Reading shape changes incompatibly. Old ids
+  `glucose`/`temperature` are migrated on load.
+- API wire types (`src/lib/syncProtocol.ts`, shared by app and server): `SyncChange` = Reading +
+  `updatedAt` + `deletedAt?`; `POST /sync { since, changes }` → `{ changes, cursor, rejected }`;
+  `CrewMember` = { id, name, role: 'astronaut' | 'flight_surgeon' }.
 
 ## Conventions
 
@@ -104,7 +109,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - **Don't make the frontend depend on the server.** The API in `server/` is optional sync; every page must
   work offline from localStorage. Components never call `fetch` directly: server access goes through
   `src/lib` (A), behind `useReadings()`.
-- Don't add auth, another database, or new heavy dependencies without asking the team.
+- Don't add user accounts/OAuth, another database, or new heavy dependencies without asking the team
+  (the API uses simple per-crew-member bearer tokens; see `docs/backend-roadmap.md`).
 - Don't call external APIs or CDNs at runtime: the app must work fully offline.
 - Don't change `types.ts` silently. It's the shared contract (see "Keep this file current").
 - Don't push or force-push without being asked.
@@ -121,7 +127,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
       edit/delete UI is B's; export still to do
 - [x] Backend phases 0–1: `server/` skeleton, SQLite, readings CRUD API + tests (A)
 - [x] Backend phase 3: `POST /sync` + offline outbox and background sync in `src/lib` (A)
-- [ ] Backend phases 2, 4–7: crew/roles, flight-surgeon endpoints, export, comms delay, deploy (A)
+- [x] Backend phase 2: crew members, roles (astronaut, flight surgeon), bearer tokens, `crew` CLI (A)
+- [ ] Backend phases 4–7: flight-surgeon overview, export, comms delay, deploy (A)
 - [ ] Mission comms-delay feature beyond the description card (A/B)
 - [ ] Optional: PWA/service worker for true offline install (ask first)
 
@@ -135,6 +142,9 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - 2026-11-15: A: sync (roadmap phase 3): `POST /sync` with a change-counter cursor and last-write-wins;
   offline outbox, edit/delete and background sync in `src/lib`; `useReadings()` gains `update`/`remove`;
   new `useSync()`; storage keys `chc:v1:outbox`, `chc:v1:sync`; `VITE_API_URL` turns sync on.
+- 2026-11-15: A: crew and roles (roadmap phase 2): bearer tokens (hashed), astronauts see only their own
+  readings, flight surgeons read everyone's (read-only); `GET /me`, `GET /crew`; readings keyed by
+  (crew, id); `npm run crew` CLI with a demo crew; `signIn`/`signOut`/`useSession()`; key `chc:v1:session`.
 
 ## Person A — status
 
@@ -145,10 +155,11 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `a/content-adapter`: `normalizeContent` maps C's content.json format to the app types; getStatus uses half-open bands and returns the band label; `validateValue` + `INPUT_LIMITS`; seed retuned to the new bands; stored-id migration.
   - `a/backend-readings` (roadmap phases 0–1): `server/` with `GET /health`, `GET /readings?indicatorId&from&to&includeDeleted`, `GET/PATCH/DELETE /readings/:id`, `POST /readings`. Built on `a/content-adapter`.
   - `a/sync` (roadmap phase 3): `POST /sync`; client outbox and background sync in `src/lib/storage.ts` and `src/lib/sync.ts`; `useReadings()` shared across components via `useSyncExternalStore`; `useSync()`. Built on `a/backend-readings`. Verified live: push, pull of another device's edit, and an offline reading catching up after a server restart.
+  - `a/crew-auth` (roadmap phase 2): crew table, hashed bearer tokens, roles, per-crew readings, `GET /me`, `GET /crew`, `npm run crew` CLI, sign-in logic. Built on `a/sync`. Verified live: 401 without a token, astronauts isolated (404/403), flight surgeon reads all crews but gets 403 on writes.
 - **In progress:** none.
 - **Next:** backend roadmap in `docs/backend-roadmap.md`, one phase at a time:
-  1. Phase 2: crew members and roles (astronaut, flight surgeon), simple bearer tokens. **Needed before a public deploy:** until then every device shares one log.
-  2. Phases 4–7: flight-surgeon overview, export, comms-delay demo, deploy.
+  1. Phase 4: flight-surgeon overview (`GET /crew/overview`: readiness and worst status per crew member, recent amber/red alerts).
+  2. Phases 5–7: export, comms-delay demo, deploy.
   - Still open on the logic side: readiness and routine prompts; mission risk emphasis.
 - **Decisions and gotchas:**
   - C owns the content.json format; the app-facing types stay stable and `src/data/content.ts` adapts. If C changes the format again, update `RawContent`/`normalizeContent`, not the components.
@@ -157,7 +168,10 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `getStatus(indicator, value)` keeps its signature and returns `{ level, action, label? }`.
   - A reading counts as current for system status and readiness if it is at most 48h old (`CURRENT_WINDOW_HOURS`).
   - Readiness: green 100, amber 50, red 0, averaged over current indicators. It is 0 when no indicator has a current reading.
-  - Server: readings keep the client's UUID, and re-POSTing an existing id returns the stored reading (200) instead of a duplicate, so offline retries are safe. Deletes are soft (`deletedAt` tombstone) so sync can propagate them. Every row has `updatedAt` for sync. The `crew_id` column defaults to `'local'` until phase 2.
+  - Server: readings keep the client's UUID, and re-POSTing an existing id returns the stored reading (200) instead of a duplicate, so offline retries are safe. Deletes are soft (`deletedAt` tombstone) so sync can propagate them. Every row has `updatedAt` for sync.
+  - Auth: every route except `GET /health` needs `Authorization: Bearer <token>`. Tokens are `chc_` + 32 random bytes; only their SHA-256 hash is stored, so a lost token is replaced (`npm run crew -- token <id>`), never recovered. Crew members are added only with the CLI (no HTTP endpoint for that). Astronauts read and write only their own readings and use `/sync`. Flight surgeons read everyone's (`?crewId=` to filter) and get 403 on any write and on `/sync`.
+  - Readings are keyed by (crew_id, id): ids only need to be unique per crew member, and a crewmate's id never reveals their reading. Rows from before phase 2 kept crew `local`, which only flight surgeons can see.
+  - Sign-in (client): `signIn(token)` checks the token with `GET /me` and refuses flight-surgeon tokens in the crew app. The first sign-in on a device keeps its readings and outbox (uploaded as that crew member's); switching to another crew member or `signOut()` clears the device's readings. `VITE_API_TOKEN` is a fallback token for local tests and demos only, because it ends up in the public JS bundle.
   - Server schema changes go in `MIGRATIONS` in `server/src/db.ts` (tracked with `PRAGMA user_version`). Never edit an applied migration; append a new one.
   - Sync: every server write takes the next `seq` (change counter); devices send their last `cursor` and get everything with a higher `seq`. Conflicts: the newest `updatedAt` wins, the server wins ties, and a stale change gets the server's version back, so devices converge. Device clocks more than 24h ahead are refused.
   - Sync, client side: add/edit/delete write locally first, then queue the latest version per id in the outbox; background sync runs on start, about 1s after a change, every 30s, and on `online`/`focus`. Seed readings are never pushed (each device has its own demo data). Reset and clear are local only: they drop pending changes and set the cursor back to 0, so the next sync pulls the server's copy again. A change the server refuses is dropped from the outbox and reported in `useSync().error`.
@@ -171,5 +185,6 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `validateValue(indicator, raw)` from `src/lib/validation`: call it in VitalsForm before `add()` and show `error` if not ok.
   - New optional detail for UI: `indicator.howToMeasureSteps`, `actionSteps[level]` (render as lists), `whyItMatters`, `escalation`, `status.label`. SpO2 now belongs to the new `respiratory` system, which BodyFigure has no region for yet.
   - `useReadings()` returns `{ readings, add, update, remove, reset, clear }`. New: `update(id, { value?, timestamp?, note? })` and `remove(id)` for edit/delete UI. All components see the same readings, including changes pulled from the server; pages need no changes for sync.
-  - `useSync()` (from `src/lib/useReadings`) returns `{ status: 'disabled' | 'offline' | 'syncing' | 'synced' | 'error', pending, lastSyncedAt?, error? }`, if B wants to show sync state anywhere. `'disabled'` means no `VITE_API_URL`.
-  - A frontend outside this repo can call the HTTP API directly: see `docs/backend-roadmap.md`.
+  - `useSync()` (from `src/lib/useReadings`) returns `{ status: 'disabled' | 'signed-out' | 'offline' | 'syncing' | 'synced' | 'error', pending, lastSyncedAt?, error? }`, if B wants to show sync state anywhere. `'disabled'` means no `VITE_API_URL`; `'signed-out'` means no valid crew token.
+  - `useSession()` (from `src/lib/useReadings`) returns `{ session, signIn, signOut }` for a sign-in screen. `session` is `{ token, crew: { id, name, role } }` or null. `await signIn(token)` resolves to `{ ok: true, crew }` or `{ ok: false, error }` (a message to show). `signOut()` also clears the device's readings.
+  - A frontend outside this repo can call the HTTP API directly (send `Authorization: Bearer <token>`): see `docs/backend-roadmap.md`.

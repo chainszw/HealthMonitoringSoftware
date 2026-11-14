@@ -1,6 +1,17 @@
 import type { Reading } from './types';
 
-// Wire format for POST /sync, shared by the app (src/lib/sync.ts) and the server.
+// Wire format of the sync server API, shared by the app (src/lib/sync.ts, session.ts) and the server.
+
+export type CrewRole = 'astronaut' | 'flight_surgeon';
+export const CREW_ROLES: CrewRole[] = ['astronaut', 'flight_surgeon'];
+
+/** A crew member as the API returns it (GET /me, GET /crew). */
+export interface CrewMember {
+  id: string;
+  name: string;
+  /** Astronauts read and write their own readings; flight surgeons read everyone's. */
+  role: CrewRole;
+}
 
 /** One reading as exchanged during sync: its full latest state. */
 export interface SyncChange extends Reading {

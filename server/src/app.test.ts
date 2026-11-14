@@ -1,50 +1,42 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createApp } from './app';
-import { openDb } from './db';
 import type { StoredReading } from './readingsRepo';
+import { json, setupApi } from './testkit';
 
-let app: ReturnType<typeof createApp>;
+// Readings API as an astronaut (alpha). Auth and roles: auth.test.ts.
+
+let api: ReturnType<typeof setupApi>;
+let req: ReturnType<ReturnType<typeof setupApi>['as']>;
 let clock: number;
 let ids: number;
 
 beforeEach(() => {
   clock = Date.parse('2026-11-15T08:00:00.000Z');
   ids = 0;
-  app = createApp(openDb(':memory:'), {
+  api = setupApi({
     now: () => new Date((clock += 1000)).toISOString(),
     makeId: () => `gen-${++ids}`,
   });
+  req = api.as(api.tokens.alpha);
 });
 
-/** Union of every response body the API returns, for typed assertions. */
-interface ApiBody {
+interface Body {
   ok?: boolean;
   reading: StoredReading;
   readings: StoredReading[];
   error?: string;
   field?: string;
 }
-const body = async (res: Response | Promise<Response>) => (await (await res).json()) as ApiBody;
-
-const json = (method: string, payload: unknown) => ({
-  method,
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(payload),
-});
-const get = (path: string) => app.request(path);
-const post = (payload: unknown) => app.request('/readings', json('POST', payload));
+const body = (res: Response | Promise<Response>) => json<Body>(res);
+const post = (payload: unknown) => req('/readings', { method: 'POST', body: payload });
 const patch = (id: string, payload: unknown) =>
-  app.request(`/readings/${id}`, json('PATCH', payload));
-const del = (id: string) => app.request(`/readings/${id}`, { method: 'DELETE' });
+  req(`/readings/${id}`, { method: 'PATCH', body: payload });
+const del = (id: string) => req(`/readings/${id}`, { method: 'DELETE' });
 const idsOf = (readings: StoredReading[]) => readings.map((r) => r.id);
-
-async function create(payload: Record<string, unknown>) {
-  return (await body(post(payload))).reading;
-}
+const create = async (payload: Record<string, unknown>) => (await body(post(payload))).reading;
 
 describe('GET /health', () => {
-  it('reports ok', async () => {
-    const res = await get('/health');
+  it('reports ok without a token', async () => {
+    const res = await api.as(undefined)('/health');
     expect(res.status).toBe(200);
     expect(await body(res)).toMatchObject({ ok: true });
   });
@@ -57,6 +49,7 @@ describe('POST /readings', () => {
     const { reading } = await body(res);
     expect(reading).toMatchObject({
       id: 'gen-1',
+      crewId: 'alpha',
       indicatorId: 'heart_rate',
       value: 72,
       note: 'after rest',
@@ -77,7 +70,7 @@ describe('POST /readings', () => {
     const again = await post(payload);
     expect(again.status).toBe(200);
     expect((await body(again)).reading.id).toBe('client-uuid-1');
-    expect((await body(get('/readings'))).readings).toHaveLength(1);
+    expect((await body(req('/readings'))).readings).toHaveLength(1);
   });
 
   it('rejects invalid bodies with the field name', async () => {
@@ -100,12 +93,7 @@ describe('POST /readings', () => {
   });
 
   it('rejects malformed JSON', async () => {
-    const res = await app.request('/readings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{oops',
-    });
-    expect(res.status).toBe(400);
+    expect((await post('{oops')).status).toBe(400);
   });
 });
 
@@ -127,23 +115,23 @@ describe('GET /readings', () => {
   });
 
   it('lists readings oldest first', async () => {
-    expect(idsOf((await body(get('/readings'))).readings)).toEqual(['a', 'c', 'b']);
+    expect(idsOf((await body(req('/readings'))).readings)).toEqual(['a', 'c', 'b']);
   });
 
   it('filters by indicator and time range', async () => {
-    const res = get(
+    const res = req(
       '/readings?indicatorId=heart_rate&from=2026-11-13T00:00:00Z&to=2026-11-15T00:00:00Z',
     );
     expect(idsOf((await body(res)).readings)).toEqual(['b']);
   });
 
   it('rejects a bad time filter', async () => {
-    expect((await get('/readings?from=soon')).status).toBe(400);
+    expect((await req('/readings?from=soon')).status).toBe(400);
   });
 
   it('gets one reading or 404', async () => {
-    expect((await body(get('/readings/c'))).reading.value).toBe(4);
-    expect((await get('/readings/zzz')).status).toBe(404);
+    expect((await body(req('/readings/c'))).reading.value).toBe(4);
+    expect((await req('/readings/zzz')).status).toBe(404);
   });
 });
 
@@ -173,8 +161,8 @@ describe('DELETE /readings/:id', () => {
     await create({ id: 'd', indicatorId: 'mood', value: 3 });
     expect((await del('d')).status).toBe(204);
     expect((await del('d')).status).toBe(404);
-    expect((await body(get('/readings'))).readings).toEqual([]);
-    const [tombstone] = (await body(get('/readings?includeDeleted=true'))).readings;
+    expect((await body(req('/readings'))).readings).toEqual([]);
+    const [tombstone] = (await body(req('/readings?includeDeleted=true'))).readings;
     expect(tombstone).toMatchObject({ id: 'd' });
     expect(tombstone.deletedAt).toBeTypeOf('string');
     expect((await patch('d', { value: 4 })).status).toBe(404);
@@ -182,8 +170,19 @@ describe('DELETE /readings/:id', () => {
 });
 
 describe('CORS', () => {
-  it('allows the Vite dev origin', async () => {
-    const res = await app.request('/health', { headers: { Origin: 'http://localhost:5173' } });
+  it('allows the Vite dev origin and the Authorization header', async () => {
+    const res = await api.app.request('/readings', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:5173',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'authorization, content-type',
+      },
+    });
+    expect(res.status).toBe(204);
     expect(res.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
+    expect(res.headers.get('access-control-allow-headers')?.toLowerCase()).toContain(
+      'authorization',
+    );
   });
 });
