@@ -9,9 +9,11 @@ import {
   loadSession,
   loadSyncState,
   refreshReadings,
+  saveMission,
   saveSession,
   updateReading,
 } from '../../src/lib/storage';
+import type { CrewMember } from '../../src/lib/syncProtocol';
 import { syncNow, type FetchLike } from '../../src/lib/sync';
 import type { StoredReading } from './readingsRepo';
 import { json, setupApi } from './testkit';
@@ -153,6 +155,18 @@ describe('sync between the app and the server', () => {
     expect(result.error).toMatch(/refused 1 change/);
     expect(loadOutbox()).toEqual({});
     expect(loadReadings()).toHaveLength(1);
+  });
+});
+
+describe('mission and comms delay', () => {
+  it("tells the server the device's mission with every sync", async () => {
+    saveMission('mars');
+    await sync();
+    const me = await json<{ crew: CrewMember }>(otherDevice('/me'));
+    expect(me.crew.mission).toBe('mars');
+    saveMission('iss');
+    await sync();
+    expect((await json<{ crew: CrewMember }>(otherDevice('/me'))).crew.mission).toBe('iss');
   });
 });
 

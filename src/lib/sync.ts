@@ -1,4 +1,5 @@
 import {
+  loadMission,
   loadOutbox,
   loadReadings,
   loadSession,
@@ -130,7 +131,8 @@ export async function syncNow(
   if (!token) return { status: 'signed-out', lastSyncedAt };
   if (browserOffline()) return { status: 'offline', lastSyncedAt };
   const sent = Object.values(loadOutbox());
-  const request: SyncRequest = { since: cursor, changes: sent };
+  // The mission tells the server this astronaut's comms delay to Earth (phase 6).
+  const request: SyncRequest = { since: cursor, changes: sent, mission: loadMission() };
 
   let res: Response;
   try {

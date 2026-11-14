@@ -55,6 +55,11 @@ export const MIGRATIONS: string[] = [
    CREATE INDEX readings_seq ON readings (seq);
    CREATE INDEX readings_crew_seq ON readings (crew_id, seq);
    CREATE INDEX readings_crew_indicator_time ON readings (crew_id, indicator_id, timestamp);`,
+  // 4: comms-delay simulation. An astronaut's mission sets the one-way delay to Earth; a reading
+  // written from space gets arrives_at, and Earth-side views hide it until then (NULL = arrived).
+  `ALTER TABLE crew ADD COLUMN mission TEXT CHECK (mission IN ('iss', 'lunar', 'mars'));
+   ALTER TABLE readings ADD COLUMN arrives_at TEXT;
+   CREATE INDEX readings_crew_arrives ON readings (crew_id, arrives_at);`,
 ];
 
 export type Db = DatabaseSync;

@@ -12,6 +12,8 @@ export interface StoredReading extends Reading {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+  /** When this version reaches Earth (comms-delay simulation); absent once there is no delay. */
+  arrivesAt?: string;
 }
 
 interface Row {
@@ -25,6 +27,7 @@ interface Row {
   updated_at: string;
   deleted_at: string | null;
   seq: number;
+  arrives_at: string | null;
 }
 
 function toReading(r: Row): StoredReading {
@@ -39,6 +42,7 @@ function toReading(r: Row): StoredReading {
   };
   if (r.note !== null) out.note = r.note;
   if (r.deleted_at !== null) out.deletedAt = r.deleted_at;
+  if (r.arrives_at !== null) out.arrivesAt = r.arrives_at;
   return out;
 }
 
@@ -65,6 +69,8 @@ export interface ListFilter {
   /** Inclusive ISO upper bound on timestamp. */
   to?: string;
   includeDeleted?: boolean;
+  /** Earth-side view: only readings that have arrived by this ISO time. */
+  arrivedBy?: string;
 }
 
 /** Every write takes the next value of the global change counter (see migration 2 in db.ts). */
@@ -93,20 +99,28 @@ export function readingsRepo(db: Db, now: () => string = () => new Date().toISOS
     if (filter.indicatorId) add('indicator_id = ?', filter.indicatorId);
     if (filter.from) add('timestamp >= ?', filter.from);
     if (filter.to) add('timestamp <= ?', filter.to);
+    if (filter.arrivedBy) add('(arrives_at IS NULL OR arrives_at <= ?)', filter.arrivedBy);
     const sql = `SELECT * FROM readings ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
                  ORDER BY timestamp, crew_id, id`;
     return (db.prepare(sql).all(...params) as unknown as Row[]).map(toReading);
   }
 
+  // Every write below takes `arrivesAt`: when this version reaches Earth (null = already there).
+  // A row whose newest version is still in transit is hidden from Earth-side views as a whole.
+
   /** Insert a new reading. Returns undefined if this crew member already has the id. */
-  function insert(crewId: string, r: Reading): StoredReading | undefined {
+  function insert(
+    crewId: string,
+    r: Reading,
+    arrivesAt: string | null = null,
+  ): StoredReading | undefined {
     if (get(crewId, r.id)) return undefined;
     const t = now();
     db.prepare(
       `INSERT INTO readings
-         (crew_id, id, indicator_id, value, timestamp, note, created_at, updated_at, seq)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${NEXT_SEQ})`,
-    ).run(crewId, r.id, r.indicatorId, r.value, r.timestamp, r.note ?? null, t, t);
+         (crew_id, id, indicator_id, value, timestamp, note, created_at, updated_at, arrives_at, seq)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${NEXT_SEQ})`,
+    ).run(crewId, r.id, r.indicatorId, r.value, r.timestamp, r.note ?? null, t, t, arrivesAt);
     return get(crewId, r.id);
   }
 
@@ -115,26 +129,36 @@ export function readingsRepo(db: Db, now: () => string = () => new Date().toISOS
     crewId: string,
     id: string,
     patch: { value?: number; timestamp?: string; note?: string | null },
+    arrivesAt: string | null = null,
   ): StoredReading | undefined {
     const cur = get(crewId, id);
     if (!cur || cur.deletedAt) return undefined;
     const note = patch.note === undefined ? (cur.note ?? null) : patch.note;
     db.prepare(
-      `UPDATE readings SET value = ?, timestamp = ?, note = ?, updated_at = ?, seq = ${NEXT_SEQ}
+      `UPDATE readings
+       SET value = ?, timestamp = ?, note = ?, updated_at = ?, arrives_at = ?, seq = ${NEXT_SEQ}
        WHERE crew_id = ? AND id = ?`,
-    ).run(patch.value ?? cur.value, patch.timestamp ?? cur.timestamp, note, now(), crewId, id);
+    ).run(
+      patch.value ?? cur.value,
+      patch.timestamp ?? cur.timestamp,
+      note,
+      now(),
+      arrivesAt,
+      crewId,
+      id,
+    );
     return get(crewId, id);
   }
 
   /** Soft delete (kept as a tombstone so sync can propagate it). */
-  function remove(crewId: string, id: string): boolean {
+  function remove(crewId: string, id: string, arrivesAt: string | null = null): boolean {
     const cur = get(crewId, id);
     if (!cur || cur.deletedAt) return false;
     const t = now();
     db.prepare(
-      `UPDATE readings SET deleted_at = ?, updated_at = ?, seq = ${NEXT_SEQ}
+      `UPDATE readings SET deleted_at = ?, updated_at = ?, arrives_at = ?, seq = ${NEXT_SEQ}
        WHERE crew_id = ? AND id = ?`,
-    ).run(t, t, crewId, id);
+    ).run(t, t, arrivesAt, crewId, id);
     return true;
   }
 
@@ -143,7 +167,11 @@ export function readingsRepo(db: Db, now: () => string = () => new Date().toISOS
    * its updatedAt is newer than the stored version ('stale' otherwise, and the stored row stays).
    * A newer change without deletedAt brings a deleted reading back.
    */
-  function applyChange(crewId: string, c: SyncChange): ApplyResult {
+  function applyChange(
+    crewId: string,
+    c: SyncChange,
+    arrivesAt: string | null = null,
+  ): ApplyResult {
     const cur = get(crewId, c.id);
     if (cur && cur.indicatorId !== c.indicatorId) return 'indicator-mismatch';
     if (cur && !isNewer(c.updatedAt, cur.updatedAt)) return 'stale';
@@ -152,17 +180,41 @@ export function readingsRepo(db: Db, now: () => string = () => new Date().toISOS
     if (!cur) {
       db.prepare(
         `INSERT INTO readings
-           (crew_id, id, indicator_id, value, timestamp, note, created_at, updated_at, deleted_at, seq)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${NEXT_SEQ})`,
-      ).run(crewId, c.id, c.indicatorId, c.value, c.timestamp, note, now(), c.updatedAt, deletedAt);
+           (crew_id, id, indicator_id, value, timestamp, note, created_at, updated_at, deleted_at,
+            arrives_at, seq)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${NEXT_SEQ})`,
+      ).run(
+        crewId,
+        c.id,
+        c.indicatorId,
+        c.value,
+        c.timestamp,
+        note,
+        now(),
+        c.updatedAt,
+        deletedAt,
+        arrivesAt,
+      );
     } else {
       db.prepare(
         `UPDATE readings
-         SET value = ?, timestamp = ?, note = ?, updated_at = ?, deleted_at = ?, seq = ${NEXT_SEQ}
+         SET value = ?, timestamp = ?, note = ?, updated_at = ?, deleted_at = ?, arrives_at = ?,
+             seq = ${NEXT_SEQ}
          WHERE crew_id = ? AND id = ?`,
-      ).run(c.value, c.timestamp, note, c.updatedAt, deletedAt, crewId, c.id);
+      ).run(c.value, c.timestamp, note, c.updatedAt, deletedAt, arrivesAt, crewId, c.id);
     }
     return 'applied';
+  }
+
+  /** Changes of a crew member still on their way to Earth at `at`, and the next arrival. */
+  function inTransit(crewId: string, at: string): { count: number; nextArrivalAt?: string } {
+    const row = db
+      .prepare(
+        `SELECT COUNT(*) AS count, MIN(arrives_at) AS next
+         FROM readings WHERE crew_id = ? AND arrives_at > ?`,
+      )
+      .get(crewId, at) as { count: number; next: string | null };
+    return row.next ? { count: row.count, nextArrivalAt: row.next } : { count: row.count };
   }
 
   /** A crew member's readings written after change number `since`, oldest change first. */
@@ -179,7 +231,7 @@ export function readingsRepo(db: Db, now: () => string = () => new Date().toISOS
     return (row as { seq: number }).seq;
   }
 
-  return { get, list, insert, update, remove, applyChange, changesSince, cursor };
+  return { get, list, insert, update, remove, applyChange, changesSince, cursor, inTransit };
 }
 
 export type ReadingsRepo = ReturnType<typeof readingsRepo>;

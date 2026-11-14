@@ -28,9 +28,11 @@ npm test           # Vitest (src/**/*.test.ts + server/**/*.test.ts, node env)
 npm run lint       # ESLint (flat config, eslint.config.js)
 npm run format     # Prettier write (format:check to verify)
 npm run build      # tsc -b (app + server) && vite build → dist/
-npm run dev:server # API on :8787 (tsx watch); env PORT, DB_PATH (server/data/chc.db), CORS_ORIGINS
+npm run dev:server # API on :8787 (tsx watch); env PORT, DB_PATH (server/data/chc.db), CORS_ORIGINS,
+                   # COMMS_DELAY_SCALE (0 = off, 1 = real time, 0.01 = Mars 13.2 s one way)
 npm run demo:server # walk through the API (needs env API_TOKEN, optional SURGEON_TOKEN)
-npm run crew -- list|add "<name>" <astronaut|flight_surgeon> [id]|token <id>|demo  # crew + tokens
+npm run demo:comms # comms-delay demo (API_TOKEN of an astronaut on Mars + SURGEON_TOKEN)
+npm run crew -- list|add "<name>" <astronaut|flight_surgeon> [id]|token <id>|mission <id> <iss|lunar|mars|none>|demo
 ```
 
 Sync is off by default. To turn it on locally: copy `.env.example` to `.env.local`
@@ -90,8 +92,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   who is signed in for sync). Bump `v1` if the Reading shape changes incompatibly. Old ids
   `glucose`/`temperature` are migrated on load.
 - API wire types (`src/lib/syncProtocol.ts`, shared by app and server): `SyncChange` = Reading +
-  `updatedAt` + `deletedAt?`; `POST /sync { since, changes }` → `{ changes, cursor, rejected }`;
-  `CrewMember` = { id, name, role: 'astronaut' | 'flight_surgeon' }.
+  `updatedAt` + `deletedAt?`; `POST /sync { since, changes, mission? }` → `{ changes, cursor, rejected }`;
+  `CrewMember` = { id, name, role: 'astronaut' | 'flight_surgeon', mission?: 'iss' | 'lunar' | 'mars' }.
 
 ## Conventions
 
@@ -130,8 +132,10 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - [x] Backend phase 2: crew members, roles (astronaut, flight surgeon), bearer tokens, `crew` CLI (A)
 - [x] Backend phase 4: flight-surgeon crew overview, per-member overview and trend endpoints (A)
 - [x] Backend phase 5: CSV/JSON export, shared by the offline app and the API (A)
-- [ ] Backend phases 6–7: comms delay, deploy (A)
-- [ ] Mission comms-delay feature beyond the description card (A/B)
+- [x] Backend phase 6: comms-delay simulation (Earth-side views see data after the mission's delay) (A)
+- [ ] Backend phase 7: deploy (A)
+- [ ] Mission comms-delay feature beyond the description card (A/B): backend done (`inTransit`,
+      `commsDelaySeconds` in the overview); showing it is B's
 - [ ] Optional: PWA/service worker for true offline install (ask first)
 
 ## Changelog
@@ -153,6 +157,9 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - 2026-11-15: A: export (roadmap phase 5): `src/lib/exportData.ts` (CSV/JSON, formula-safe CSV, offline
   `exportDeviceReadings`), `GET /export.csv` and `/export.json`, `fetchExport()`; README data schema
   section updated to C's content format.
+- 2026-11-15: A: comms delay (roadmap phase 6): `COMMS_DELAY_SCALE`; mission per astronaut (sent by the
+  app with each sync, or `npm run crew -- mission`); readings get `arrives_at`; flight-surgeon views
+  show only what reached Earth, with `inTransit` and `commsDelaySeconds` in the overview; `demo:comms`.
 
 ## Person A — status
 
@@ -166,10 +173,10 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `a/crew-auth` (roadmap phase 2): crew table, hashed bearer tokens, roles, per-crew readings, `GET /me`, `GET /crew`, `npm run crew` CLI, sign-in logic. Built on `a/sync`. Verified live: 401 without a token, astronauts isolated (404/403), flight surgeon reads all crews but gets 403 on writes.
   - `a/surgeon-overview` (roadmap phase 4): `GET /crew/overview` (astronauts most urgent first: status, readiness, per-system status, latest per indicator, overdue checks, amber/red alerts), `GET /crew/:id/overview`, `GET /crew/:id/trend/:indicatorId`; `src/lib/crewApi.ts`. Built on `a/crew-auth`. Verified live with the demo crew: Mira red, Sam amber, Alex green.
   - `a/export` (roadmap phase 5): shared CSV/JSON export builder, `GET /export.csv` and `/export.json` (same access as reading), `exportDeviceReadings()` for offline export, `fetchExport()`. Built on `a/surgeon-overview`. Verified live: surgeon exports Mira's sleep as CSV; astronauts get 403 for others.
+  - `a/comms-delay` (roadmap phase 6): mission per astronaut, `arrives_at` on writes from space, Earth-side filtering for flight surgeons, `inTransit` in the overview, `npm run demo:comms`. Built on `a/export`. Verified live at x0.01: Earth saw Mira's 118 bpm only after 13 s.
 - **In progress:** none.
 - **Next:** backend roadmap in `docs/backend-roadmap.md`, one phase at a time:
-  1. Phase 6: comms-delay demo (hold sync replies for the mission's one-way delay, scaled for demos).
-  2. Phase 7: deploy (server host, `VITE_API_URL`, CORS).
+  1. Phase 7: deploy (server host, `VITE_API_URL`, CORS).
   - Still open on the logic side: readiness and routine prompts; mission risk emphasis.
 - **Decisions and gotchas:**
   - C owns the content.json format; the app-facing types stay stable and `src/data/content.ts` adapts. If C changes the format again, update `RawContent`/`normalizeContent`, not the components.
@@ -183,6 +190,7 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - Readings are keyed by (crew_id, id): ids only need to be unique per crew member, and a crewmate's id never reveals their reading. Rows from before phase 2 kept crew `local`, which only flight surgeons can see.
   - Sign-in (client): `signIn(token)` checks the token with `GET /me` and refuses flight-surgeon tokens in the crew app. The first sign-in on a device keeps its readings and outbox (uploaded as that crew member's); switching to another crew member or `signOut()` clears the device's readings. `VITE_API_TOKEN` is a fallback token for local tests and demos only, because it ends up in the public JS bundle.
   - Server schema changes go in `MIGRATIONS` in `server/src/db.ts` (tracked with `PRAGMA user_version`). Never edit an applied migration; append a new one.
+  - Comms delay: the server stands for Earth. Each astronaut write gets `arrives_at` = now + the mission's worst-case one-way delay (`commsDelaySeconds.max` in content.json) × `COMMS_DELAY_SCALE`. Flight-surgeon reads (readings, overview, trend, export) only include rows that have arrived; a row whose newest version is still in transit is hidden as a whole (simplification: an edit hides the old version too). The astronaut's own views and `/sync` are not delayed, since their devices are with them. With the scale at 0 (default) nothing changes and the clock is not even read.
   - Sync: every server write takes the next `seq` (change counter); devices send their last `cursor` and get everything with a higher `seq`. Conflicts: the newest `updatedAt` wins, the server wins ties, and a stale change gets the server's version back, so devices converge. Device clocks more than 24h ahead are refused.
   - Sync, client side: add/edit/delete write locally first, then queue the latest version per id in the outbox; background sync runs on start, about 1s after a change, every 30s, and on `online`/`focus`. Seed readings are never pushed (each device has its own demo data). Reset and clear are local only: they drop pending changes and set the cursor back to 0, so the next sync pulls the server's copy again. A change the server refuses is dropped from the outbox and reported in `useSync().error`.
   - All browser-only APIs in shared `src/lib` files are typed locally (no DOM types), because the server typechecks those files too.
@@ -200,3 +208,4 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - A frontend outside this repo can call the HTTP API directly (send `Authorization: Bearer <token>`): see `docs/backend-roadmap.md`.
   - Flight-surgeon console: `fetchCrewOverview(apiUrl, token, alertDays?)`, `fetchCrewMemberOverview(...)`, `fetchCrewTrend(apiUrl, token, crewId, indicatorId, days?)` and `fetchMe(...)` from `src/lib/crewApi.ts`. Each resolves to `{ ok: true, data }` or `{ ok: false, status, error }` (never throws). Response types in `src/lib/syncProtocol.ts`; trend points have the same shape as `getTrend()`, so `TrendChart` can draw them.
   - Export: `exportDeviceReadings(readings, 'csv' | 'json', session?.crew)` from `src/lib/exportData.ts` returns `{ filename, mimeType, content }` offline; a console uses `fetchExport(apiUrl, token, format, filters)`. Saving the file (Blob download) is UI.
+  - Comms delay: the app already sends the selected mission with every sync. A flight-surgeon screen can show each astronaut's `commsDelaySeconds` and `inTransit: { count, nextArrivalAt }` from the overview ("1 reading in transit from Mars, arrives in 8 s").

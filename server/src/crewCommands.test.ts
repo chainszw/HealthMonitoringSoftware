@@ -38,7 +38,7 @@ describe('crew command line', () => {
     expect(out[0]).toContain('alex-rivera-2');
     expect(run('add', 'Dr. Jordan Lee', 'flight_surgeon', 'surgeon')).toBe(0);
     expect(run('list')).toBe(0);
-    expect(out[0]).toMatch(/^surgeon\s+flight_surgeon\s+Dr\. Jordan Lee$/);
+    expect(out[0]).toMatch(/^surgeon\s+flight_surgeon\s+-\s+Dr\. Jordan Lee$/);
     expect(out).toHaveLength(3);
     expect(tokensIn(out)).toEqual([]);
   });
@@ -87,6 +87,31 @@ describe('crew command line', () => {
     const second = tokensIn(out);
     expect(second.some((t) => first.includes(t))).toBe(false);
     expect(readings.list({ crewId: 'alpha' })).toHaveLength(expected(1));
+  });
+});
+
+describe('missions', () => {
+  it('sets and clears a crew member mission', () => {
+    run('add', 'Alex', 'astronaut', 'alex');
+    expect(run('mission', 'alex', 'mars')).toBe(0);
+    expect(crewRepo(db).get('alex')?.mission).toBe('mars');
+    expect(run('list')).toBe(0);
+    expect(out[0]).toMatch(/^alex\s+astronaut\s+mars\s+Alex$/);
+    expect(run('mission', 'alex', 'none')).toBe(0);
+    expect(crewRepo(db).get('alex')).not.toHaveProperty('mission');
+    expect(run('mission', 'alex', 'venus')).toBe(1);
+    expect(run('mission', 'nobody', 'iss')).toBe(1);
+  });
+
+  it('puts the demo astronauts on different missions', () => {
+    run('demo');
+    const crew = crewRepo(db);
+    expect(['alpha', 'bravo', 'charlie'].map((id) => crew.get(id)?.mission)).toEqual([
+      'iss',
+      'lunar',
+      'mars',
+    ]);
+    expect(crew.get('surgeon')).not.toHaveProperty('mission');
   });
 });
 

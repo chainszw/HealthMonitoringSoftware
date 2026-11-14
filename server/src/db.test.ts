@@ -75,4 +75,22 @@ describe('openDb', () => {
     });
     db.close();
   });
+
+  it('upgrades a version-3 database: no missions, every existing reading already arrived', () => {
+    const path = join(dir, 'v3.db');
+    const v3 = new DatabaseSync(path);
+    for (const m of MIGRATIONS.slice(0, 3)) v3.exec(m);
+    v3.exec('PRAGMA user_version = 3');
+    v3.exec(`INSERT INTO crew (id, name, role, token_hash, created_at)
+             VALUES ('alpha', 'Alex', 'astronaut', 'h', 't')`);
+    v3.exec(`INSERT INTO readings (crew_id, id, indicator_id, value, timestamp, created_at, updated_at)
+             VALUES ('alpha', 'x', 'mood', 4, 't', 't', 't')`);
+    v3.close();
+
+    const db = openDb(path);
+    expect(db.prepare('SELECT mission FROM crew').get()).toEqual({ mission: null });
+    expect(db.prepare('SELECT arrives_at FROM readings').get()).toEqual({ arrives_at: null });
+    expect(() => db.exec("UPDATE crew SET mission = 'venus'")).toThrow(/CHECK/);
+    db.close();
+  });
 });

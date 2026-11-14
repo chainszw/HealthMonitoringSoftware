@@ -15,8 +15,8 @@ rules directly instead of copying them.
 | 3     | `POST /sync` plus a sync queue behind `storage.ts` / `useReadings` | Done   |
 | 4     | Flight-surgeon endpoints: crew overview, per-crew trends           | Done   |
 | 5     | Export: `GET /export.json`, `GET /export.csv`                      | Done   |
-| 6     | Optional demo: hold sync replies for the mission's comms delay     | Next   |
-| 7     | Deploy (Render or Fly.io), `VITE_API_URL` on Vercel, CORS          |        |
+| 6     | Comms-delay demo: Earth sees data after the mission's delay        | Done   |
+| 7     | Deploy (Render or Fly.io), `VITE_API_URL` on Vercel, CORS          | Next   |
 
 The minimum that demos is phases 0, 1, 3 and 7. Without `VITE_API_URL` the app stays local-only.
 
@@ -26,6 +26,8 @@ The minimum that demos is phases 0, 1, 3 and 7. Without `VITE_API_URL` the app s
 npm run dev:server   # http://localhost:8787, SQLite file in server/data/chc.db
 npm run crew -- demo # demo crew: 1 flight surgeon + 3 astronauts with 30 days of readings; prints tokens
 # then, in PowerShell: $env:API_TOKEN = 'chc_…'; $env:SURGEON_TOKEN = 'chc_…'; npm run demo:server
+# comms delay: start the server with $env:COMMS_DELAY_SCALE = '0.01', then run npm run demo:comms
+# with Mira Lindqvist's token (she is on Mars) as API_TOKEN
 ```
 
 Environment variables: `PORT` (default 8787), `DB_PATH` (default `server/data/chc.db`),
@@ -99,16 +101,18 @@ Types: `CrewOverviewResponse`, `CrewMemberOverviewResponse` and `CrewTrendRespon
 `GET /crew/overview?days=7` returns `{ generatedAt, currentWindowHours: 48, alertDays, crew: [...] }`.
 Each astronaut in `crew` has:
 
-| Field           | Meaning                                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------- |
-| `crew`          | `{ id, name, role }`                                                                              |
-| `status`        | Worst current status: `red`, `amber`, `green`, or `unknown` (nothing current)                     |
-| `readiness`     | `{ score, streak }`, same rules as the crew app                                                   |
-| `systems`       | Status per body system, e.g. `{ heart: 'green', mind: 'red', bone: 'unknown' }`                   |
-| `latest`        | Per indicator: `{ readingId, value, timestamp, level, label?, current }`                          |
-| `overdue`       | Indicator ids with no reading in the last 48h (missed checks)                                     |
-| `alerts`        | Amber/red readings in the last `days` days, newest first (max 50), with name, unit and band label |
-| `lastReadingAt` | Newest reading time                                                                               |
+| Field               | Meaning                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| `crew`              | `{ id, name, role }`                                                                              |
+| `status`            | Worst current status: `red`, `amber`, `green`, or `unknown` (nothing current)                     |
+| `readiness`         | `{ score, streak }`, same rules as the crew app                                                   |
+| `systems`           | Status per body system, e.g. `{ heart: 'green', mind: 'red', bone: 'unknown' }`                   |
+| `latest`            | Per indicator: `{ readingId, value, timestamp, level, label?, current }`                          |
+| `overdue`           | Indicator ids with no reading in the last 48h (missed checks)                                     |
+| `alerts`            | Amber/red readings in the last `days` days, newest first (max 50), with name, unit and band label |
+| `lastReadingAt`     | Newest reading time                                                                               |
+| `commsDelaySeconds` | One-way delay to Earth for the astronaut's mission at the current scale (0 = none)                |
+| `inTransit`         | `{ count, nextArrivalAt? }`: changes sent from space that have not reached Earth yet              |
 
 - Sorted most urgent first: red, amber, unknown, green; then by name.
 - Statuses come from the same shared code as the crew app (`getStatus`, `getSystemStatus`,
@@ -140,6 +144,30 @@ The same builder (`src/lib/exportData.ts`) works offline: `exportDeviceReadings(
 crew?)` returns `{ filename, mimeType, content }` for a device's own readings, with no server
 needed. A console downloads server exports with `fetchExport(apiUrl, token, format, filters)` from
 `src/lib/crewApi.ts`.
+
+## Comms delay (phase 6)
+
+The server stands for Earth. Data an astronaut sends reaches Earth after their mission's one-way
+light-time, so the flight surgeon sees it late. The astronaut's app keeps working on its own the
+whole time.
+
+- **Speed:** `COMMS_DELAY_SCALE` when starting the server. `0` = off (the default, no behaviour
+  change), `1` = real time, `0.01` = 100x faster. The delay is the mission's worst case from
+  `content.json`, so at `0.01`: ISS 0.01 s, Moon 0.013 s, Mars 13.2 s.
+- **Mission:** each astronaut has one (`iss`, `lunar`, `mars`). The app sends the mission selected
+  on the device with every `/sync`; `npm run crew -- mission <id> <mission|none>` sets it too. The
+  demo crew is Alex on the ISS, Sam on the Moon and Mira on Mars.
+- **What is delayed:** every write by an astronaut (`POST`/`PATCH`/`DELETE /readings` and `/sync`)
+  gets an arrival time. Flight surgeons' reads (`/readings`, overview, trend, export) only include
+  readings that have arrived. A reading whose newest version is still in transit is hidden until it
+  arrives (an edit hides the older version too; a deliberate simplification).
+- **What is not delayed:** the astronaut's own views and their `/sync` replies. Their devices are
+  with them.
+- **What the surgeon sees:** each astronaut in the overview has `commsDelaySeconds` and
+  `inTransit: { count, nextArrivalAt }`; stored readings show `arrivesAt` while it is in the future.
+
+`npm run demo:comms` shows it end to end: Mira logs 118 bpm on Mars, and the flight surgeon's view
+shows "1 change in transit" with a countdown until the reading arrives about 13 s later.
 
 ## Sync (phase 3)
 

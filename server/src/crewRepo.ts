@@ -1,4 +1,5 @@
 import { CREW_ROLES, type CrewMember, type CrewRole } from '../../src/lib/syncProtocol';
+import type { MissionProfileId } from '../../src/lib/types';
 import { generateToken, hashToken } from './auth';
 import type { Db } from './db';
 
@@ -8,9 +9,14 @@ interface Row {
   role: CrewRole;
   token_hash: string;
   created_at: string;
+  mission: MissionProfileId | null;
 }
 
-const toMember = (r: Row): CrewMember => ({ id: r.id, name: r.name, role: r.role });
+function toMember(r: Row): CrewMember {
+  const member: CrewMember = { id: r.id, name: r.name, role: r.role };
+  if (r.mission) member.mission = r.mission;
+  return member;
+}
 
 export const CREW_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
 export const MAX_NAME_LENGTH = 80;
@@ -88,7 +94,12 @@ export function crewRepo(db: Db, now: () => string = () => new Date().toISOStrin
     return token;
   }
 
-  return { get, findByToken, list, add, rotateToken };
+  /** Set (or clear, with null) an astronaut's mission. False if the id is unknown. */
+  function setMission(id: string, mission: MissionProfileId | null): boolean {
+    return db.prepare('UPDATE crew SET mission = ? WHERE id = ?').run(mission, id).changes > 0;
+  }
+
+  return { get, findByToken, list, add, rotateToken, setMission };
 }
 
 export type CrewRepo = ReturnType<typeof crewRepo>;

@@ -1,5 +1,5 @@
 import type { TrendPoint } from './insights';
-import type { BodySystemId, Reading, StatusResult } from './types';
+import type { BodySystemId, MissionProfileId, Reading, StatusResult } from './types';
 
 // Wire format of the sync server API, shared by the app (src/lib/sync.ts, session.ts) and the server.
 
@@ -12,6 +12,8 @@ export interface CrewMember {
   name: string;
   /** Astronauts read and write their own readings; flight surgeons read everyone's. */
   role: CrewRole;
+  /** An astronaut's current mission (sets the comms delay to Earth); absent if not set. */
+  mission?: MissionProfileId;
 }
 
 /** One reading as exchanged during sync: its full latest state. */
@@ -27,6 +29,8 @@ export interface SyncRequest {
   since: number;
   /** Local changes not yet sent (latest version per reading id). */
   changes: SyncChange[];
+  /** The mission selected on the device; the server uses it for the comms delay. */
+  mission?: MissionProfileId;
 }
 
 export interface SyncResponse {
@@ -91,10 +95,16 @@ export interface CrewOverviewItem {
   /** Amber and red readings within `alertDays`, newest first (at most 50). */
   alerts: CrewAlert[];
   lastReadingAt?: string;
+  /** Simulated one-way comms delay to Earth for this astronaut's mission, in seconds (0 = none). */
+  commsDelaySeconds: number;
+  /** Readings sent but not yet arrived on Earth: not counted in anything above. */
+  inTransit: { count: number; nextArrivalAt?: string };
 }
 
 export interface CrewOverviewResponse {
   generatedAt: string;
+  /** Comms-delay simulation speed: 0 = off, 1 = real time, 0.01 = 100x faster. */
+  commsDelayScale: number;
   currentWindowHours: number;
   alertDays: number;
   /** Astronauts, most urgent first: red, amber, unknown, green; then by name. */
@@ -103,6 +113,7 @@ export interface CrewOverviewResponse {
 
 export interface CrewMemberOverviewResponse {
   generatedAt: string;
+  commsDelayScale: number;
   currentWindowHours: number;
   alertDays: number;
   overview: CrewOverviewItem;

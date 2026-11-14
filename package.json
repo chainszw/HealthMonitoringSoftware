@@ -8,6 +8,7 @@
     "dev:server": "tsx watch server/src/index.ts",
     "start:server": "tsx server/src/index.ts",
     "demo:server": "node server/scripts/demo.mjs",
+    "demo:comms": "node server/scripts/comms-demo.mjs",
     "crew": "tsx server/src/crewCli.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",

@@ -1,5 +1,7 @@
 import { generateSeed } from '../../src/data/seed';
 import { CREW_ROLES, type CrewRole } from '../../src/lib/syncProtocol';
+import type { MissionProfileId } from '../../src/lib/types';
+import { MISSION_IDS, isMissionId } from './comms';
 import { crewRepo, type CrewRepo } from './crewRepo';
 import type { Db } from './db';
 import { readingsRepo } from './readingsRepo';
@@ -12,16 +14,23 @@ export const USAGE = `Manage crew members and their tokens.
   npm run crew -- list
   npm run crew -- add "<name>" <astronaut|flight_surgeon> [id]
   npm run crew -- token <id>   new token for a crew member; the old one stops working
+  npm run crew -- mission <id> <iss|lunar|mars|none>   sets the comms delay (phase 6)
   npm run crew -- demo         demo crew, 30 days of readings per astronaut; prints tokens
 
 Database: DB_PATH (default server/data/chc.db). A token is shown once; only its hash is stored.`;
 
 /** Fictional demo crew. `seed` varies each astronaut's generated readings. */
-export const DEMO_CREW: { id: string; name: string; role: CrewRole; seed?: number }[] = [
+export const DEMO_CREW: {
+  id: string;
+  name: string;
+  role: CrewRole;
+  seed?: number;
+  mission?: MissionProfileId;
+}[] = [
   { id: 'surgeon', name: 'Dr. Jordan Lee', role: 'flight_surgeon' },
-  { id: 'alpha', name: 'Alex Rivera', role: 'astronaut', seed: 1 },
-  { id: 'bravo', name: 'Sam Okafor', role: 'astronaut', seed: 2 },
-  { id: 'charlie', name: 'Mira Lindqvist', role: 'astronaut', seed: 3 },
+  { id: 'alpha', name: 'Alex Rivera', role: 'astronaut', seed: 1, mission: 'iss' },
+  { id: 'bravo', name: 'Sam Okafor', role: 'astronaut', seed: 2, mission: 'lunar' },
+  { id: 'charlie', name: 'Mira Lindqvist', role: 'astronaut', seed: 3, mission: 'mars' },
 ];
 
 /**
@@ -50,7 +59,11 @@ export function runCrewCommand(
       case 'list': {
         const all = crew.list();
         if (!all.length) print('No crew yet. Add one: npm run crew -- add "<name>" astronaut');
-        for (const m of all) print(`${m.id.padEnd(14)} ${m.role.padEnd(15)} ${m.name}`);
+        for (const m of all) {
+          print(
+            `${m.id.padEnd(14)} ${m.role.padEnd(15)} ${(m.mission ?? '-').padEnd(6)} ${m.name}`,
+          );
+        }
         return 0;
       }
       case 'add': {
@@ -76,6 +89,19 @@ export function runCrewCommand(
           return 1;
         }
         print(`New token for ${id} (the old one no longer works): ${token}`);
+        return 0;
+      }
+      case 'mission': {
+        const [id, mission] = rest;
+        if (!id || !mission || (mission !== 'none' && !isMissionId(mission))) {
+          print(`Usage: npm run crew -- mission <id> <${MISSION_IDS.join('|')}|none>`);
+          return 1;
+        }
+        if (!crew.setMission(id, mission === 'none' ? null : mission)) {
+          print(`No crew member with id "${id}".`);
+          return 1;
+        }
+        print(mission === 'none' ? `Cleared the mission of ${id}.` : `${id} is now on ${mission}.`);
         return 0;
       }
       case 'demo':
@@ -105,6 +131,7 @@ function demo(db: Db, crew: CrewRepo, print: (line: string) => void, now: () => 
       const token = crew.get(d.id)
         ? crew.rotateToken(d.id)!
         : crew.add({ id: d.id, name: d.name, role: d.role }).token;
+      if (d.mission) crew.setMission(d.id, d.mission);
       let added = 0;
       const empty = readings.list({ crewId: d.id, includeDeleted: true }).length === 0;
       if (d.seed !== undefined && empty) {

@@ -18,12 +18,24 @@ export const MAX_ALERTS = 50;
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
-/** Summarise one astronaut's readings (deleted readings must already be left out). */
+/** Comms-delay facts for one astronaut (phase 6); none by default. */
+export interface CommsInfo {
+  delaySeconds: number;
+  inTransit: { count: number; nextArrivalAt?: string };
+}
+
+const NO_DELAY: CommsInfo = { delaySeconds: 0, inTransit: { count: 0 } };
+
+/**
+ * Summarise one astronaut's readings. The caller leaves out deleted readings and, for an
+ * Earth-side view, readings still in transit (those are only counted in `comms.inTransit`).
+ */
 export function buildCrewOverview(
   member: CrewMember,
   readings: Reading[],
   now: Date,
   alertDays: number,
+  comms: CommsInfo = NO_DELAY,
 ): CrewOverviewItem {
   const nowMs = now.getTime();
   const currentFrom = nowMs - CURRENT_WINDOW_HOURS * HOUR;
@@ -86,6 +98,8 @@ export function buildCrewOverview(
     latest,
     overdue,
     alerts: alerts.slice(0, MAX_ALERTS),
+    commsDelaySeconds: comms.delaySeconds,
+    inTransit: comms.inTransit,
   };
   if (lastReadingAt !== undefined) item.lastReadingAt = lastReadingAt;
   return item;

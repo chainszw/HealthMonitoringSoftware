@@ -14,6 +14,7 @@ import type {
   SyncResponse,
 } from '../../src/lib/syncProtocol';
 import { bearerToken } from './auth';
+import { arrivalTime, commsDelaySeconds, isMissionId } from './comms';
 import { crewRepo } from './crewRepo';
 import type { Db } from './db';
 import { buildCrewOverview, byUrgency } from './overview';
@@ -25,6 +26,8 @@ export interface AppOptions {
   corsOrigins?: string[];
   now?: () => string;
   makeId?: () => string;
+  /** Comms-delay simulation speed: 0 = off (default), 1 = real time, 0.01 = 100x faster. */
+  commsDelayScale?: number;
 }
 
 export const DEFAULT_CORS_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
@@ -50,10 +53,14 @@ function parseDays(raw: string | undefined, fallback: number): number | undefine
  * Access: every route except GET /health needs "Authorization: Bearer <crew token>".
  * Astronauts read and write only their own readings. Flight surgeons read every crew member's
  * readings (filter with ?crewId=) and cannot change them.
+ *
+ * Comms delay (commsDelayScale > 0): the server stands for Earth. An astronaut's writes reach
+ * Earth after their mission's delay, so flight surgeons' views leave them out until then.
  */
 export function createApp(db: Db, opts: AppOptions = {}) {
   const now = opts.now ?? (() => new Date().toISOString());
   const makeId = opts.makeId ?? randomUUID;
+  const scale = opts.commsDelayScale ?? 0;
   const readings = readingsRepo(db, now);
   const crew = crewRepo(db, now);
   const app = new Hono<Env>();
@@ -100,6 +107,18 @@ export function createApp(db: Db, opts: AppOptions = {}) {
     return { crewId: me(c).id };
   }
 
+  /** Earth-side views see only what has arrived: flight surgeons are on Earth. */
+  const arrivedBy = (c: Ctx) => (isSurgeon(c) ? now() : undefined);
+  /** When a write by this astronaut reaches Earth (null when there is no delay). */
+  const arrivesAtFor = (member: CrewMember) => {
+    const seconds = commsDelaySeconds(member.mission, scale);
+    return seconds > 0 ? arrivalTime(now(), seconds) : null;
+  };
+  const commsFor = (member: CrewMember, at: string) => ({
+    delaySeconds: commsDelaySeconds(member.mission, scale),
+    inTransit: readings.inTransit(member.id, at),
+  });
+
   app.get('/me', (c) => c.json({ crew: me(c) }));
 
   app.get('/crew', (c) =>
@@ -134,13 +153,23 @@ export function createApp(db: Db, opts: AppOptions = {}) {
     const alertDays = parseDays(c.req.query('days'), 7);
     if (alertDays === undefined) return badDays(c);
     const at = new Date(now());
+    const t = at.toISOString();
     const items = crew
       .list()
       .filter((m) => m.role === 'astronaut')
-      .map((m) => buildCrewOverview(m, readings.list({ crewId: m.id }), at, alertDays))
+      .map((m) =>
+        buildCrewOverview(
+          m,
+          readings.list({ crewId: m.id, arrivedBy: t }),
+          at,
+          alertDays,
+          commsFor(m, t),
+        ),
+      )
       .sort(byUrgency);
     const response: CrewOverviewResponse = {
-      generatedAt: at.toISOString(),
+      generatedAt: t,
+      commsDelayScale: scale,
       currentWindowHours: CURRENT_WINDOW_HOURS,
       alertDays,
       crew: items,
@@ -155,11 +184,15 @@ export function createApp(db: Db, opts: AppOptions = {}) {
     const alertDays = parseDays(c.req.query('days'), 7);
     if (alertDays === undefined) return badDays(c);
     const at = new Date(now());
+    const t = at.toISOString();
+    // The astronaut sees all of their own readings; a flight surgeon only what reached Earth.
+    const list = readings.list({ crewId: member!.id, arrivedBy: arrivedBy(c) && t });
     const response: CrewMemberOverviewResponse = {
-      generatedAt: at.toISOString(),
+      generatedAt: t,
+      commsDelayScale: scale,
       currentWindowHours: CURRENT_WINDOW_HOURS,
       alertDays,
-      overview: buildCrewOverview(member!, readings.list({ crewId: member!.id }), at, alertDays),
+      overview: buildCrewOverview(member!, list, at, alertDays, commsFor(member!, t)),
     };
     return c.json(response);
   });
@@ -174,7 +207,7 @@ export function createApp(db: Db, opts: AppOptions = {}) {
     }
     const days = parseDays(c.req.query('days'), 30);
     if (days === undefined) return badDays(c);
-    const list = readings.list({ crewId: member!.id, indicatorId });
+    const list = readings.list({ crewId: member!.id, indicatorId, arrivedBy: arrivedBy(c) });
     const response: CrewTrendResponse = {
       crewId: member!.id,
       indicatorId,
@@ -200,6 +233,7 @@ export function createApp(db: Db, opts: AppOptions = {}) {
       from: from && toIso(from),
       to: to && toIso(to),
       includeDeleted: includeDeleted === 'true',
+      arrivedBy: arrivedBy(c),
     });
     return c.json({ readings: list });
   });
@@ -212,7 +246,12 @@ export function createApp(db: Db, opts: AppOptions = {}) {
       return c.json({ error: 'crewId is required for flight surgeons.', field: 'crewId' }, 400);
     }
     const reading = readings.get(scope.crewId, c.req.param('id'));
-    return reading ? c.json({ reading }) : c.json({ error: 'Reading not found.' }, 404);
+    if (!reading) return c.json({ error: 'Reading not found.' }, 404);
+    const cutoff = arrivedBy(c);
+    if (cutoff && reading.arrivesAt && reading.arrivesAt > cutoff) {
+      return c.json({ error: 'Not received on Earth yet (still in transit).' }, 404);
+    }
+    return c.json({ reading });
   });
 
   // Create. Clients may send their own id (the app already generates UUIDs);
@@ -222,7 +261,7 @@ export function createApp(db: Db, opts: AppOptions = {}) {
     const body: unknown = await c.req.json().catch(() => undefined);
     const check = checkNewReading(body, makeId, now);
     if (!check.ok) return c.json({ error: check.error, field: check.field }, 400);
-    const created = readings.insert(me(c).id, check.value);
+    const created = readings.insert(me(c).id, check.value, arrivesAtFor(me(c)));
     if (created) return c.json({ reading: created }, 201);
     const existing = readings.get(me(c).id, check.value.id)!;
     return c.json({ reading: existing }, 200);
@@ -236,12 +275,12 @@ export function createApp(db: Db, opts: AppOptions = {}) {
     const body: unknown = await c.req.json().catch(() => undefined);
     const check = checkPatch(body, cur.indicatorId);
     if (!check.ok) return c.json({ error: check.error, field: check.field }, 400);
-    return c.json({ reading: readings.update(me(c).id, id, check.value) });
+    return c.json({ reading: readings.update(me(c).id, id, check.value, arrivesAtFor(me(c))) });
   });
 
   app.delete('/readings/:id', (c) => {
     if (isSurgeon(c)) return c.json({ error: READ_ONLY }, 403);
-    return readings.remove(me(c).id, c.req.param('id'))
+    return readings.remove(me(c).id, c.req.param('id'), arrivesAtFor(me(c)))
       ? c.body(null, 204)
       : c.json({ error: 'Reading not found.' }, 404);
   });
@@ -270,6 +309,7 @@ export function createApp(db: Db, opts: AppOptions = {}) {
       from: from && toIso(from),
       to: to && toIso(to),
       includeDeleted: includeDeleted === 'true',
+      arrivedBy: arrivedBy(c),
     });
     const crewNames = Object.fromEntries(crew.list().map((m) => [m.id, m.name]));
     const filters = Object.fromEntries(
@@ -315,13 +355,25 @@ export function createApp(db: Db, opts: AppOptions = {}) {
       if (!check.ok) return c.json({ error: check.error, field: check.field }, 400);
       const { changes, rejected } = check.value;
 
+      // The device's mission selector sets this astronaut's comms delay from now on.
+      const mission = (body as { mission?: unknown }).mission;
+      if (mission !== undefined && mission !== null && !isMissionId(mission)) {
+        return c.json({ error: 'mission must be iss, lunar or mars.', field: 'mission' }, 400);
+      }
+      let member = me(c);
+      if (isMissionId(mission) && mission !== member.mission) {
+        crew.setMission(crewId, mission);
+        member = { ...member, mission };
+      }
+      const arrivesAt = arrivesAtFor(member);
+
       // A cursor ahead of the server means the server data was reset: send everything.
       const since = check.value.since > readings.cursor() ? 0 : check.value.since;
       const staleIds: string[] = [];
       db.exec('BEGIN');
       try {
         for (const change of changes) {
-          const result = readings.applyChange(crewId, change);
+          const result = readings.applyChange(crewId, change, arrivesAt);
           if (result === 'stale') staleIds.push(change.id);
           if (result === 'indicator-mismatch') {
             rejected.push({ id: change.id, error: 'indicatorId cannot change.' });
