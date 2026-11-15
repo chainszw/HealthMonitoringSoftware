@@ -181,3 +181,23 @@ export function getBodySystem(id: BodySystemId): BodySystem | undefined {
 export function getMissionProfile(id: string): MissionProfile | undefined {
   return content.missionProfiles.find((m) => m.id === id);
 }
+
+/** Every source in content.json, with the indicators that cite it (for the Sources page). */
+export const contentSources: {
+  id: string;
+  title: string;
+  org?: string;
+  url?: string;
+  usedBy: string[];
+}[] = (raw as RawContent).sources.map((s) => ({
+  ...s,
+  usedBy: content.indicators
+    .filter((i) => i.sources.some((x) => x.title === s.title))
+    .map((i) => i.name),
+}));
+
+/** content.json version and date. */
+export const contentMeta = {
+  version: (raw as RawContent).meta.version,
+  lastUpdated: (raw as RawContent).meta.lastUpdated,
+};

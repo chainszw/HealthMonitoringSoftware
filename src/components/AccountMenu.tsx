@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { exportDeviceReadings, type ExportFormat } from '../lib/exportData';
 import { formatWhen } from '../lib/format';
 import type { SyncStatus } from '../lib/sync';
 import { useReadings, useSession } from '../lib/useReadings';
+import { saveFile } from './download';
 import { btn } from './tone';
 
 // Owner B: the avatar in the header. Crew sign-in for sync (a token from `npm run crew`),
@@ -45,7 +47,9 @@ export function AccountMenu({
   onOpenChange: (open: boolean) => void;
 }) {
   const { session, signIn, signOut } = useSession();
-  const { reset } = useReadings();
+  const { readings, reset } = useReadings();
+  const exportAs = (format: ExportFormat) =>
+    saveFile(exportDeviceReadings(readings, format, session?.crew));
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -160,6 +164,29 @@ export function AccountMenu({
               Sign out (clears this device)
             </button>
           )}
+
+          <div className="flex flex-col gap-1.5 border-t border-line pt-3">
+            <span className="text-[13px] font-medium text-text">
+              Export your readings ({readings.length})
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => exportAs('csv')}
+                className={btn('secondary', 'h-10 flex-1 cursor-pointer text-sm')}
+              >
+                CSV (Excel)
+              </button>
+              <button
+                type="button"
+                onClick={() => exportAs('json')}
+                className={btn('secondary', 'h-10 flex-1 cursor-pointer text-sm')}
+              >
+                JSON
+              </button>
+            </div>
+            <span className="text-[12px] text-muted">Made on this device; works offline.</span>
+          </div>
 
           <div className="flex flex-col gap-1.5 border-t border-line pt-3">
             <button

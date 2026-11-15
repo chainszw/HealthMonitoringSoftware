@@ -65,7 +65,8 @@ rules are shared, never copied.
 | A: backend    | `server/*` (db, readingsRepo, crewRepo, auth, validate, app, index, crewCli, tests, scripts), `docs/backend-roadmap.md`, `Dockerfile`, `.dockerignore`, `render.yaml` |
 
 Routes: `/` Dashboard, `/zoe` ZOĒ device (lazy-loaded, three.js), `/log`, `/body`, `/trends`
-(lazy-loaded), `/routine`. A start screen (`StartScreen`, state in `components/startGate.ts`, in memory)
+(lazy-loaded), `/routine`, `/sources` (sources and credits), `/surgeon` (flight-surgeon console,
+lazy-loaded; needs the server and a flight-surgeon token, kept in memory only). A start screen (`StartScreen`, state in `components/startGate.ts`, in memory)
 shows before them on every load: it picks the data source (`src/lib/dataSource.ts`: real server data when
 the backend answers and you're signed in, else a random spike scenario from `src/data/scenarios.ts`) and
 the view (ZOĒ device or Health Console).
@@ -227,6 +228,12 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   panel from `b/backdrops` (`components/backdrop/`, `DevPanel`, `?bg=sky|grid|aurora`, `?dev`, key
   `chc:v1:dev`, `loadDevSettings`/`saveDevSetting` in A's `storage.ts`) replace `CalmDots` in the shell;
   Today's vital rows are status-bordered cards with the live charts on a grid panel. No features removed.
+- 2026-11-15: Placeholders connected (session at the user's request, editing A's, B's and C's files):
+  the 29 `PLACEHOLDER:` texts in content.json replaced with final wording (in-place, nothing else
+  touched; C may still revise); footer link opens a new `/sources` page (`contentSources`/`contentMeta`
+  from `content.ts`, HRA and ZOĒ credits); account menu exports the device's readings as CSV/JSON
+  (`components/download.ts`); `/surgeon` flight-surgeon console wires `crewApi.ts` (overview every 15 s,
+  per-astronaut trend, server export, comms-delay "in transit" line when `COMMS_DELAY_SCALE` > 0).
 
 ## Person B — status
 

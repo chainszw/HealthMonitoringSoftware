@@ -49,6 +49,7 @@ const NAV: {
   { to: '/body', label: 'Body view', Icon: IconBody },
   { to: '/trends', label: 'Trends', Icon: IconTrend },
   { to: '/routine', label: 'Routine', Icon: IconCalendarCheck },
+  { to: '/surgeon', label: 'Flight surgeon', Icon: IconSignal },
 ];
 
 export function Layout() {
@@ -217,12 +218,12 @@ export function Layout() {
             <span>
               Decision support only, not a diagnosis. Your flight surgeon has the final say.
             </span>
-            <a
-              href="#sources"
+            <NavLink
+              to="/sources"
               className="whitespace-nowrap text-accent no-underline hover:text-[#8fd0fd]"
             >
-              Sources and credits: NASA HRP, ESA
-            </a>
+              Sources and credits: NASA, CSA, HRA atlas
+            </NavLink>
           </footer>
         </main>
       </div>

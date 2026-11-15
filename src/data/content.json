@@ -9,69 +9,69 @@
     {
       "id": "heart",
       "name": "Heart and circulation",
-      "spaceflightEffects": "PLACEHOLDER: Fluids shift toward the head; the heart can lose mass and blood volume drops.",
+      "spaceflightEffects": "In weightlessness, body fluids shift toward the head, blood volume drops, and the heart can lose some mass because it works less hard. Coming back to gravity can cause dizziness when standing.",
       "hazards": ["altered_gravity", "isolation_confinement"]
     },
     {
       "id": "respiratory",
       "name": "Lungs and breathing",
-      "spaceflightEffects": "PLACEHOLDER: Cabin oxygen, pressure and air quality affect breathing and blood oxygen.",
+      "spaceflightEffects": "Cabin oxygen, pressure, carbon dioxide and air quality all affect breathing and blood oxygen. A low reading can come from the cabin, not just the body.",
       "hazards": ["hostile_environment"]
     },
     {
       "id": "bone",
       "name": "Bones",
-      "spaceflightEffects": "PLACEHOLDER: Weight-bearing bones can lose roughly 1-1.5% of mass per month without countermeasures.",
+      "spaceflightEffects": "Without weight to carry, hips and spine can lose about 1 to 1.5% of bone mass per month unless exercise and diet counter it (NASA).",
       "hazards": ["altered_gravity"],
       "steps": [
-        "PLACEHOLDER: Finish today’s resistance session.",
-        "PLACEHOLDER: Eat your calcium and vitamin D portions.",
-        "PLACEHOLDER: Report new back or joint pain."
+        "Finish today’s resistance session.",
+        "Eat your calcium and vitamin D portions.",
+        "Report new back or joint pain to your flight surgeon."
       ]
     },
     {
       "id": "muscle",
       "name": "Muscles",
-      "spaceflightEffects": "PLACEHOLDER: Postural muscles weaken without daily resistance exercise.",
+      "spaceflightEffects": "Postural muscles in the back and legs weaken quickly without daily resistance and aerobic exercise.",
       "hazards": ["altered_gravity"],
       "steps": [
-        "PLACEHOLDER: Finish today’s resistance and aerobic sessions.",
-        "PLACEHOLDER: Report new weakness, cramps or pain."
+        "Finish today’s resistance and aerobic sessions.",
+        "Report new weakness, cramps or pain to your flight surgeon."
       ]
     },
     {
       "id": "immune",
       "name": "Immune system",
-      "spaceflightEffects": "PLACEHOLDER: Immune function can change; latent viruses may reactivate.",
+      "spaceflightEffects": "Stress, radiation and a closed environment can change how the immune system works; dormant viruses such as herpes viruses may reactivate (NASA).",
       "hazards": ["radiation", "hostile_environment"]
     },
     {
       "id": "eyes",
       "name": "Eyes and vision",
-      "spaceflightEffects": "PLACEHOLDER: Spaceflight-associated neuro-ocular syndrome (SANS) can change vision.",
+      "spaceflightEffects": "Spaceflight-associated neuro-ocular syndrome (SANS) can change the back of the eye and blur near vision on long missions (NASA).",
       "hazards": ["altered_gravity"],
       "steps": [
-        "PLACEHOLDER: Run this week’s near-vision card check.",
-        "PLACEHOLDER: Note any new blur or headaches.",
-        "PLACEHOLDER: Worse than last week? Flag it for your flight surgeon."
+        "Run this week’s near-vision card check.",
+        "Note any new blur or headaches.",
+        "Worse than last week? Tell your flight surgeon."
       ]
     },
     {
       "id": "mind",
       "name": "Mind and behavior",
-      "spaceflightEffects": "PLACEHOLDER: Isolation, confinement, workload and sleep loss affect mood, cognition and teamwork.",
+      "spaceflightEffects": "Isolation, confinement, heavy workload and short sleep can lower mood, focus and teamwork (NASA).",
       "hazards": ["isolation_confinement", "distance_from_earth"]
     },
     {
       "id": "sleep",
       "name": "Sleep and circadian rhythm",
-      "spaceflightEffects": "PLACEHOLDER: About 16 sunrises a day in low Earth orbit can disrupt circadian rhythm.",
+      "spaceflightEffects": "In low Earth orbit the crew sees about 16 sunrises a day, which disrupts the body clock and sleep.",
       "hazards": ["isolation_confinement", "hostile_environment"]
     },
     {
       "id": "metabolic",
       "name": "Metabolism and nutrition",
-      "spaceflightEffects": "PLACEHOLDER: Insulin sensitivity and appetite can change in flight.",
+      "spaceflightEffects": "Insulin sensitivity, appetite and food intake can change in flight, so blood sugar is worth watching.",
       "hazards": ["hostile_environment"]
     }
   ],
@@ -79,19 +79,19 @@
     {
       "id": "iss",
       "name": "ISS (low Earth orbit)",
-      "description": "PLACEHOLDER: Near-continuous contact with ground and flight surgeons.",
+      "description": "Low Earth orbit. Near-continuous contact with ground teams and flight surgeons; a return to Earth takes hours.",
       "commsDelaySeconds": { "min": 0, "max": 1 }
     },
     {
       "id": "lunar",
       "name": "Lunar (Artemis)",
-      "description": "PLACEHOLDER: About 1.3 s one-way delay; evacuation to Earth takes days.",
+      "description": "Lunar base. About 1.3 seconds one-way delay; getting back to Earth takes days.",
       "commsDelaySeconds": { "min": 1.3, "max": 1.3 }
     },
     {
       "id": "mars",
       "name": "Mars transit / surface",
-      "description": "PLACEHOLDER: 3-22 min one-way delay; crew must act autonomously.",
+      "description": "Mars. Messages take about 3 to 22 minutes each way, so the crew must act on its own first.",
       "commsDelaySeconds": { "min": 180, "max": 1320 }
     }
   ],
@@ -472,7 +472,7 @@
         "time": "06:30",
         "title": "Sleep log",
         "short": "sleep log",
-        "why": "PLACEHOLDER: Log how long you slept, right after your main sleep period.",
+        "why": "Log how long you slept, right after your main sleep period.",
         "category": "Sleep",
         "duration": "1 min",
         "indicatorIds": ["sleep_hours"]
@@ -482,7 +482,7 @@
         "time": "07:00",
         "title": "Morning water, 500 ml",
         "short": "morning water",
-        "why": "PLACEHOLDER: Your body sheds fluid early in flight. Drink to your daily target.",
+        "why": "Your body sheds fluid early in flight. Drink to your daily target.",
         "category": "Fluids"
       },
       {
@@ -490,7 +490,7 @@
         "time": "07:40",
         "title": "Morning vitals",
         "short": "morning vitals",
-        "why": "PLACEHOLDER: Heart rate, blood pressure, oxygen and temperature.",
+        "why": "Heart rate, blood pressure, blood oxygen and temperature.",
         "category": "Vitals",
         "duration": "5 min",
         "indicatorIds": ["heart_rate", "bp_systolic", "bp_diastolic", "spo2", "body_temp"]
@@ -500,7 +500,7 @@
         "time": "09:30",
         "title": "Resistance exercise",
         "short": "resistance session",
-        "why": "PLACEHOLDER: Squats, deadlifts and heel raises load your hips and spine to protect bone.",
+        "why": "Squats, deadlifts and heel raises load your hips and spine to protect bone.",
         "category": "Exercise",
         "duration": "45 min"
       },
@@ -509,7 +509,7 @@
         "time": "15:30",
         "title": "Aerobic exercise",
         "short": "aerobic session",
-        "why": "PLACEHOLDER: Cycle or treadmill. Keeps your heart and lungs ready for landing.",
+        "why": "Cycle or treadmill. Keeps your heart and lungs ready for landing.",
         "category": "Exercise",
         "duration": "30 min"
       },
@@ -518,7 +518,7 @@
         "time": "18:00",
         "title": "Mood check-in",
         "short": "mood check-in",
-        "why": "PLACEHOLDER: One number and optional notes. Private to you and your flight surgeon.",
+        "why": "One number and optional notes. Private to you and your flight surgeon.",
         "category": "Mind",
         "duration": "30 s",
         "indicatorIds": ["mood"]
@@ -530,7 +530,7 @@
         "time": "13:00",
         "title": "Rest block",
         "short": "rest block",
-        "why": "PLACEHOLDER: Added because your last sleep was short.",
+        "why": "Added because your last sleep was short.",
         "category": "Sleep",
         "duration": "30 min",
         "showWhen": "short_sleep"
@@ -540,7 +540,7 @@
         "time": "19:30",
         "title": "Record a message home",
         "short": "message home",
-        "why": "PLACEHOLDER: With a {delay} delay, a recording works better than a call.",
+        "why": "With a {delay} delay, a recording works better than a live call.",
         "category": "Mind"
       },
       {
@@ -548,7 +548,7 @@
         "time": "21:00",
         "title": "Near-vision card check",
         "short": "vision check",
-        "why": "PLACEHOLDER: Weekly check for changes in near vision.",
+        "why": "Weekly check for changes in near vision.",
         "category": "Eyes",
         "duration": "5 min"
       }
