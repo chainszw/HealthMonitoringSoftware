@@ -63,7 +63,7 @@ rules are shared, never copied.
 | C: content    | `src/data/content.json`, README pitch, write-up                                                                                                                       |
 | A: backend    | `server/*` (db, readingsRepo, crewRepo, auth, validate, app, index, crewCli, tests, scripts), `docs/backend-roadmap.md`, `Dockerfile`, `.dockerignore`, `render.yaml` |
 
-Routes: `/` Dashboard, `/log`, `/body`, `/trends` (Trends is lazy-loaded because Recharts is large).
+Routes: `/` Dashboard, `/log`, `/body`, `/trends` (lazy-loaded), `/routine`.
 The mission profile is owned by `Layout` and passed to pages through `useOutletContext<{ mission }>()`.
 
 ## Schema (src/lib/types.ts)
@@ -103,8 +103,13 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - Only `src/lib/storage.ts` touches `localStorage`. Components use `useReadings()` / `useMission()`.
 - Pure logic goes in `src/lib/` with a colocated `*.test.ts`. Keep `getStatus` pure.
 - Function components, **named exports** (no default exports except where `React.lazy` needs adapting).
-- Tailwind classes only (no CSS modules/styled-components). Status colors: `bg-status-green|amber|red|unknown`,
-  surfaces: `bg-space-900|800|700`. Recharts needs hex colors; keep them in sync with `index.css`.
+- Tailwind classes only (no CSS modules/styled-components). Design tokens (v0.3) in `index.css` `@theme`:
+  surfaces `bg-bg|surface|raised|hover|sunk`, text `text-ink|text|muted|faint`, borders `border-line|line-2`,
+  `accent`, status `ok|watch|act` (+ `-t` tints, `act-l` border). Old `status-*`/`space-*` tokens remain for now.
+- UI status is a `Tone` (`normal|watch|act`, `src/components/tone.ts`), always shown as shape + word + colour
+  (`StatusPill`/`StatusIcon` in `components/ui.tsx`). Map `getStatus` levels green/amber/red → normal/watch/act.
+  SVG needs hex colours: use `TONE[t].hex`, kept in sync with `index.css`.
+- Icons: inline stroke SVGs in `components/icons.tsx` (no icon library, no emoji).
 - TypeScript strict; no `any`. Prettier: single quotes, semicolons, width 100.
 - Seed data is deterministic (`generateSeed(days, now, seed)`). Keep scripted amber/red events for the demo.
 
@@ -125,8 +130,10 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - [x] Types, content.json (placeholders), getStatus + tests, seed + tests, storage + tests
 - [x] Routed shell; functional placeholder components (StatusCard, VitalsForm, BodyFigure, TrendChart, Streak, Disclaimer)
 - [ ] Real content and sources in content.json; ranges verified (C)
-- [ ] Visual design pass: body illustration, animations, mobile layout (B)
-- [ ] Trend chart amber/red markers, date range filter (B)
+- [x] Visual design pass from the design canvas: shell, Dashboard, Body, Log, Trends, Routine (B, layout only)
+- [x] Trend chart amber/red markers, date range filter (B, on mock data)
+- [ ] Wire the new screens to real data (`useReadings`, `insights.ts`, content.json), then delete `src/pages/designMock.ts` (B)
+- [ ] Mobile layout pass (B)
 - [x] Edit/delete readings, export data (A): logic done (`useReadings().update/remove`, API PATCH/DELETE,
       `exportDeviceReadings`, `/export.csv|json`); the buttons and screens are B's
 - [x] Backend phases 0–1: `server/` skeleton, SQLite, readings CRUD API + tests (A)
@@ -167,6 +174,32 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - 2026-11-15: A: deploy-ready (roadmap phase 7): `build:server` bundle (`dist-server/`), `Dockerfile`,
   `render.yaml`, CI builds the bundle and the image; `CORS_ORIGINS` wildcards; security headers, 64 KB
   body limit on readings, request log, clean shutdown.
+- 2026-11-15: B: design v0.3 implemented as layout (mock data, not wired): new shell, all screens, `/routine` route (Claude, B session).
+- 2026-11-15: B: mock frontend redesign: all five screens fit 1366×768 laptops up to big monitors without page scroll (healthcare-ui-design skill); `content.ts` cast through `unknown` so the build passes until A reconciles content.json with types.ts (Claude, B session).
+- 2026-11-15: A: merged B's redesign into the backend work; `content.ts` keeps A's `normalizeContent` adapter, which replaces B's temporary cast.
+
+## Person B — status
+
+Person B owns visuals and UX. Only Person B's sessions edit this section.
+
+- **Done:** design v0.3 layout for every screen (`/`, `/body`, `/log`, `/trends`, `/routine`) plus the app shell.
+- **In progress:** fit-to-screen redesign of all five screens (healthcare-ui-design skill): Today rebuilt in `src/components/today/` (vitals 3×2 + readiness + needs attention, body figure removed from Today); Log, Body, Trends, Routine re-laid out as 3 columns with inner scrolling.
+- **Next:**
+  1. Wire screens to `useReadings()`, `getSystemStatus`/`getTrend`/`getReadiness` and content.json; delete `designMock.ts`.
+  2. Move guidance/disclaimer text now in pages and `designMock.ts` into content.json (with C).
+  3. Mobile layout pass.
+- **Decisions and gotchas:**
+  - **Screens show mock data on purpose.** `src/pages/designMock.ts` holds everything copied from the design
+    (values, thresholds, guidance text). It breaks the "text lives in content.json" rule until wired. Don't build on it.
+  - Body figure is a flat 2D SVG (`BodyFigure.tsx`), not the design's three.js model: no new heavy dependency,
+    works offline. Callouts cover mind/eyes/heart/immune/bone; leader lines are measured with a ResizeObserver.
+  - Trends uses a hand-drawn SVG chart (matches the design); Recharts and `TrendChart.tsx` are unused now.
+  - Fonts: Instrument Sans / DM Mono only if installed locally (no Google Fonts at runtime); bundling needs a dependency, so ask first.
+  - Every screen fits with no page scroll from 1280×600 up (1366×768 laptops through big monitors): `.chc-fit*` / `.chc-scroll` in `index.css`. Pages use `xl:min-h-0` chains and put long lists in inner scroll areas. Below that, normal stacked flow.
+  - Page headers use the compact `PageHeader` (`components/ui.tsx`); `PageTitle` is unused.
+  - Status colour rule: amber/red only for abnormal items; normal text is neutral, only the small pill/icon is green.
+  - `?alert` on `/` and `/body` shows the Act-now state.
+  - Unused for now, not deleted: `StatusCard`, `VitalsForm`, `Streak`, `TrendChart`, `Disclaimer`.
 
 ## Person A — status
 

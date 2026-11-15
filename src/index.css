@@ -9,6 +9,56 @@
   --color-space-900: #0b1020;
   --color-space-800: #131a2e;
   --color-space-700: #1e2742;
+
+  /* Design v0.3 (canvas "Crew Health Console"). Use as bg-surface, text-muted, border-line, ... */
+  --color-bg: #0a0d14;
+  --color-surface: #131824;
+  --color-raised: #1a2131;
+  --color-hover: #161c2a;
+  --color-sunk: #0e121b;
+  --color-line: rgb(233 237 243 / 0.1);
+  --color-line-2: rgb(233 237 243 / 0.18);
+  --color-ink: #e9edf3;
+  --color-text: rgb(233 237 243 / 0.86);
+  --color-muted: #8891a1;
+  --color-faint: #5a6478;
+  --color-accent: #5ab9fc;
+  --color-accent-ink: #0a0d14;
+  --color-ok: #4ade9b;
+  --color-ok-t: rgb(74 222 155 / 0.12);
+  --color-watch: #fbbf4a;
+  --color-watch-t: rgb(251 191 74 / 0.12);
+  --color-act: #ff8a8a;
+  --color-act-t: rgb(255 122 122 / 0.13);
+  --color-act-l: rgb(255 122 122 / 0.55);
+
+  /* Offline: no webfont download. Instrument Sans / DM Mono are used if installed locally. */
+  --font-display: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, Menlo, monospace;
+
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-chc-in: chc-in 0.56s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-chc-pulse: chc-pulse 1.6s ease-in-out infinite;
+
+  @keyframes chc-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes chc-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
 }
 
 html {
@@ -16,5 +66,36 @@ html {
 }
 
 body {
-  @apply bg-space-900 text-slate-100 antialiased;
+  @apply bg-bg font-display text-ink antialiased;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Laptops (1366x768) up to big monitors: lock the app to the viewport so no page scrolls;
+   long panels scroll inside (.chc-scroll / overflow-y-auto). Smaller screens use normal flow. */
+@media (min-width: 1280px) and (min-height: 600px) {
+  .chc-fit {
+    height: 100dvh;
+  }
+  .chc-fit-row,
+  .chc-fit-cols {
+    min-height: 0;
+    flex-wrap: nowrap;
+  }
+  .chc-scroll {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

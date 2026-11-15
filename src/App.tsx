@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { Body } from './pages/Body';
 import { Dashboard } from './pages/Dashboard';
 import { Log } from './pages/Log';
+import { Routine } from './pages/Routine';
 
 // Trends pulls in Recharts (~400 kB), so it is loaded on demand.
 const Trends = lazy(() => import('./pages/Trends').then((m) => ({ default: m.Trends })));
@@ -17,6 +18,7 @@ export function App() {
           <Route path="log" element={<Log />} />
           <Route path="body" element={<Body />} />
           <Route path="trends" element={<Trends />} />
+          <Route path="routine" element={<Routine />} />
           <Route path="*" element={<Dashboard />} />
         </Route>
       </Routes>

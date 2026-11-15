@@ -1,48 +1,65 @@
-import { useOutletContext } from 'react-router';
-import { StatusCard } from '../components/StatusCard';
-import { Streak } from '../components/Streak';
-import { content, getMissionProfile } from '../data/content';
-import { latestByIndicator, loggingStreak } from '../lib/readings';
-import { getStatus, worstStatus } from '../lib/status';
-import type { MissionProfileId } from '../lib/types';
-import { useReadings } from '../lib/useReadings';
+import { Link, useSearchParams } from 'react-router';
+import { IconPlus } from '../components/icons';
+import { ActNowBanner } from '../components/today/ActNowBanner';
+import { AttentionPanel } from '../components/today/AttentionPanel';
+import { ReadinessSummary } from '../components/today/ReadinessSummary';
+import { VitalCard } from '../components/today/VitalCard';
+import { btn } from '../components/tone';
+import { PageHeader } from '../components/ui';
+import { attention, dashboardVitals, DUE_TODAY, readiness, SHIP } from './designMock';
 
-// Owner B: layout/visuals. Owner A: data wiring.
+// Owner B: "Today" dashboard. KPI vitals first (left, largest), then what to do (right).
+// At ≥1280×600 the app locks to the viewport (`.chc-fit` rule in index.css): no page scroll;
+// only the attention list scrolls inside its panel. Smaller screens fall back to normal flow.
+// LAYOUT TEST: shows design mock data. Add ?alert to the URL for the Act-now state.
 
 export function Dashboard() {
-  const { mission } = useOutletContext<{ mission: MissionProfileId }>();
-  const { readings, reset } = useReadings();
-  const latest = latestByIndicator(readings);
-  const overall = worstStatus(
-    content.indicators.map((i) => getStatus(i, latest[i.id]?.value).level),
-  );
-  const profile = getMissionProfile(mission);
+  const [params] = useSearchParams();
+  const alert = params.has('alert');
+  const ready = readiness(alert);
+  const vitals = dashboardVitals(alert);
 
   return (
-    <section className="grid gap-4">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-space-700 bg-space-800 p-4">
-          <p className="text-sm text-slate-400">Overall status</p>
-          <p className="text-2xl font-semibold uppercase">{overall}</p>
-        </div>
-        <Streak days={loggingStreak(readings)} />
-        {profile && (
-          <div className="rounded-xl border border-space-700 bg-space-800 p-4">
-            <p className="text-sm text-slate-400">{profile.name}</p>
-            <p className="text-sm">{profile.description}</p>
+    <div className="flex flex-col gap-3.5 xl:min-h-0 xl:flex-1">
+      <PageHeader
+        title="Today"
+        meta={[
+          { label: 'Mission day', value: SHIP.day },
+          { label: 'Date', value: SHIP.date },
+          { label: 'Ship time', value: SHIP.time },
+        ]}
+      >
+        <Link to="/log" className={btn('primary', 'h-11 pr-5 pl-4 text-base no-underline')}>
+          <IconPlus size={20} strokeWidth={2.2} />
+          Log vitals
+        </Link>
+      </PageHeader>
+
+      {alert && <ActNowBanner />}
+
+      <div className="flex flex-col gap-3.5 xl:min-h-0 xl:flex-1 xl:flex-row">
+        <section
+          aria-labelledby="vit-h"
+          className="flex min-w-0 animate-chc-in flex-col gap-2 [animation-delay:60ms] xl:min-h-0 xl:flex-1"
+        >
+          <h2 id="vit-h" className="sr-only">
+            Today’s vitals
+          </h2>
+          <div
+            aria-live="polite"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:min-h-0 xl:flex-1 xl:grid-cols-3 xl:grid-rows-2"
+          >
+            {vitals.map((t) => (
+              <VitalCard key={t.label} t={t} />
+            ))}
           </div>
-        )}
-      </div>
+        </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {content.indicators.map((i) => (
-          <StatusCard key={i.id} indicator={i} reading={latest[i.id]} />
-        ))}
+        <div className="flex min-w-0 animate-chc-in flex-col gap-3.5 [animation-delay:120ms] xl:min-h-0 xl:w-[clamp(340px,26vw,440px)] xl:shrink-0">
+          <ReadinessSummary ready={ready} />
+          <AttentionPanel items={attention(alert)} due={DUE_TODAY} logged={3} total={7} />
+        </div>
       </div>
-
-      <button onClick={reset} className="justify-self-start text-xs text-slate-500 underline">
-        Reset to demo data
-      </button>
-    </section>
+    </div>
   );
 }
