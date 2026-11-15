@@ -228,6 +228,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   panel from `b/backdrops` (`components/backdrop/`, `DevPanel`, `?bg=sky|grid|aurora`, `?dev`, key
   `chc:v1:dev`, `loadDevSettings`/`saveDevSetting` in A's `storage.ts`) replace `CalmDots` in the shell;
   Today's vital rows are status-bordered cards with the live charts on a grid panel. No features removed.
+- 2026-11-15: B: Today drops the crew 3D panel (anatomy stays on Body view); the six vitals are a 3×2 grid
+  of cards with their live charts (`VitalRow`). `CrewCharacter` is unused for now, not deleted.
 - 2026-11-15: Placeholders connected (session at the user's request, editing A's, B's and C's files):
   the 29 `PLACEHOLDER:` texts in content.json replaced with final wording (in-place, nothing else
   touched; C may still revise); footer link opens a new `/sources` page (`contentSources`/`contentMeta`

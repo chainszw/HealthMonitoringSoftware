@@ -1,9 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { FIGURE_SYSTEMS, heartbeatSeconds } from '../components/figure';
 import { IconPlus } from '../components/icons';
 import { ActNowBanner } from '../components/today/ActNowBanner';
-import { CrewCharacter, type CharacterView } from '../components/today/CrewCharacter';
 import {
   AttentionPanel,
   type AttentionView,
@@ -30,14 +28,12 @@ import {
 } from '../components/vitals';
 import { content, getIndicator } from '../data/content';
 import { formatClock, formatValue, formatWhen, greenBand } from '../lib/format';
-import { getSystemStatus } from '../lib/insights';
 import { latestByIndicator } from '../lib/readings';
 import { getStatus } from '../lib/status';
 import { getAttention, getReadinessBreakdown } from '../lib/today';
 import { chartDomain, seriesFor } from '../lib/trends';
-import type { BodySystemId, Reading } from '../lib/types';
-import { organTint } from '../components/anatomy/organs';
-import { useMissionDay, useReadings, useRoutine, useSession, useSync } from '../lib/useReadings';
+import type { Reading } from '../lib/types';
+import { useMissionDay, useReadings, useRoutine, useSync } from '../lib/useReadings';
 
 // Owner B: "Today" dashboard. KPI vitals first (left, largest), then what to do (right).
 // At ≥1280×600 the app locks to the viewport (`.chc-fit` rule in index.css): no page scroll;
@@ -100,7 +96,6 @@ export function Dashboard() {
   const now = useNow();
   const missionDay = useMissionDay();
   const routine = useRoutine(content.routine.daily);
-  const crewName = useSession().session?.crew.name;
   // Demo data: numbers change every second (display only). Real data: readings as they are.
   const demo = useStart().mode === 'demo';
   const bases = useMemo(() => {
@@ -181,44 +176,19 @@ export function Dashboard() {
       action: firstRed.actionSteps.join(' ') || firstRed.action,
       href: logHref(entryKeyOf(firstRed.key)),
     };
-    const tones = Object.fromEntries(
-      FIGURE_SYSTEMS.map((id) => [id, toneOf(getSystemStatus(id, readings, now))]),
-    );
-    const character: CharacterView = {
-      tones,
-      tint: organTint(
-        Object.fromEntries(
-          [...FIGURE_SYSTEMS, 'metabolic', 'muscle'].map((id) => [
-            id,
-            toneOf(getSystemStatus(id as BodySystemId, readings, now)),
-          ]),
-        ),
-      ),
-      flagged: Object.values(tones).filter((t) => t === 'watch' || t === 'act').length,
-    };
-    const hr = entryStatus('heart_rate', readings).value;
-    const beat = heartbeatSeconds(readings);
-    if (crewName) character.name = crewName;
-    if (hr) character.heartRate = hr;
-    if (beat) character.beatSeconds = beat;
     return {
       tiles: TILE_KEYS.map((k) => buildTile(k, readings, now)),
-      character,
       ready,
       items,
       due,
       banner,
       logged: DAILY_ENTRIES.length - due.length,
     };
-  }, [readings, now, routine.day.done, routine.day.total, crewName]);
+  }, [readings, now, routine.day.done, routine.day.total]);
 
   const tiles = live
     ? view.tiles.map((t, i) => withLive(TILE_KEYS[i], t, live.values[TILE_KEYS[i]]))
     : view.tiles;
-  const liveHr = live?.values.heart_rate?.now[0];
-  const character: CharacterView = liveHr
-    ? { ...view.character, heartRate: String(liveHr), beatSeconds: 60 / liveHr }
-    : view.character;
 
   return (
     <div className="flex flex-col gap-3.5 xl:min-h-0 xl:flex-1">
@@ -255,8 +225,8 @@ export function Dashboard() {
           <h2 id="vit-h" className="sr-only">
             Today’s vitals
           </h2>
-          {/* One card per vital, stacked. */}
-          <div className="flex flex-col gap-2 xl:min-h-0 xl:flex-1">
+          {/* One card per vital: 3 across, 2 rows. */}
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:min-h-0 xl:flex-1 xl:grid-rows-2">
             {tiles.map((t, i) => (
               <VitalRow
                 key={t.label}
@@ -267,11 +237,6 @@ export function Dashboard() {
             ))}
           </div>
         </section>
-
-        {/* Live crew character: reserved stage for the 3D body model */}
-        <div className="flex min-w-0 animate-chc-in flex-col [animation-delay:90ms] xl:min-h-0 xl:w-[clamp(250px,20vw,340px)] xl:shrink-0">
-          <CrewCharacter view={character} />
-        </div>
 
         <div className="flex min-w-0 animate-chc-in flex-col gap-3.5 [animation-delay:120ms] xl:min-h-0 xl:w-[clamp(340px,26vw,440px)] xl:shrink-0">
           <ReadinessSummary ready={view.ready} />
