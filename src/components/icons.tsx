@@ -76,6 +76,16 @@ export const IconArrowRight = (p: IconProps) => (
     <path d="M5 12h14M13 6l6 6-6 6" />
   </Svg>
 );
+export const IconArrowUp = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 19V5M6 11l6-6 6 6" />
+  </Svg>
+);
+export const IconArrowDown = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M18 13l-6 6-6-6" />
+  </Svg>
+);
 export const IconChevronRight = (p: IconProps) => (
   <Svg {...p}>
     <path d="M9 6l6 6-6 6" />

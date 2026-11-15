@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useOutletContext } from 'react-router';
-import { IconCheckCircle, IconPlus } from '../components/icons';
+import { IconCheckCircle, IconChevronRight, IconPlus } from '../components/icons';
 import { btn, ROW, TONE, type Tone } from '../components/tone';
-import { PageTitle, Panel, StatusIcon, StatusPill } from '../components/ui';
+import { PageHeader, Panel, StatusIcon, StatusPill } from '../components/ui';
 import type { MissionProfileId } from '../lib/types';
 import { MISSIONS, TREND_DATA, TREND_KEYS, TREND_NOTES, TRENDS, type TrendKey } from './designMock';
 
@@ -81,6 +81,7 @@ export function Trends() {
   const [hover, setHover] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [attached, setAttached] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
 
   const g = geometry(sel, n);
   const lastTone: Tone = g.last?.tone ?? 'normal';
@@ -98,9 +99,9 @@ export function Trends() {
   const dots = g.points.filter((p) => p.tone !== 'normal' || n <= 30);
 
   return (
-    <>
-      <PageTitle title="Trends">
-        <div className="flex flex-wrap items-center gap-4">
+    <div className="flex flex-col gap-3.5 xl:min-h-0 xl:flex-1">
+      <PageHeader title="Trends" meta={[{ label: 'Days', value: `${firstDay}–142` }]}>
+        <div className="flex flex-wrap items-center gap-2.5">
           <div
             role="group"
             aria-label="Time range"
@@ -121,99 +122,131 @@ export function Trends() {
               </button>
             ))}
           </div>
-          <span className="font-mono text-[15px] text-muted">Days {firstDay}–142</span>
-          <Link to="/log" className={btn('primary', 'h-12 pr-5 pl-4 text-base no-underline')}>
+          <Link to="/log" className={btn('primary', 'h-11 pr-5 pl-4 text-base no-underline')}>
             <IconPlus size={20} strokeWidth={2.2} />
             Log vitals
           </Link>
         </div>
-      </PageTitle>
+      </PageHeader>
 
-      <div className="chc-fit-cols flex flex-1 flex-wrap items-stretch gap-[18px]">
+      <div className="chc-fit-cols flex flex-col gap-3.5 xl:min-h-0 xl:flex-1 xl:flex-row">
         {/* Column A */}
-        <div className="chc-scroll flex min-w-0 flex-[0_1_380px] animate-chc-in flex-col gap-[18px] [animation-delay:60ms]">
-          <Panel title="What changed" aside={`${n} days`} className="!gap-1">
-            {notes.map((o) => (
-              <button
-                key={o.title}
-                type="button"
-                aria-pressed={o.k === sel}
-                onClick={() => {
-                  setSel(o.k);
-                  setHover(null);
-                }}
-                className={`${ROW} cursor-pointer items-start`}
-              >
-                <span className={`mt-0.5 ${TONE[o.tone].text}`}>
-                  <StatusIcon tone={o.tone} size={20} strokeWidth={2.2} />
-                </span>
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-base font-medium">{o.title}</span>
-                  <span className="text-[15px] leading-[21px] text-text">{o.text}</span>
-                </span>
-              </button>
-            ))}
-          </Panel>
-          <Panel title="Note for your flight surgeon">
-            <label htmlFor="note" className="text-[15px] leading-[22px] text-text">
-              Anything that explains these lines, like a hard workout, a late night or a new
-              medicine.
-            </label>
-            <textarea
-              id="note"
-              rows={4}
-              value={note}
-              onChange={(e) => {
-                setNote(e.target.value);
-                setAttached(false);
-              }}
-              placeholder="e.g. Coffee before the BP check on day 142."
-              className="resize-y rounded-xl border border-line-2 bg-sunk p-3 text-base text-ink outline-none placeholder:text-faint focus:border-accent"
-            />
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setAttached(true)}
-                className={btn(
-                  'secondary',
-                  `cursor-pointer px-4 ${attached ? '!border-ok/45' : ''}`,
-                )}
-              >
-                {attached && (
-                  <span className="text-ok">
-                    <IconCheckCircle size={18} strokeWidth={2.4} />
+        <div className="flex min-w-0 animate-chc-in flex-col gap-3.5 [animation-delay:60ms] xl:min-h-0 xl:w-[clamp(300px,24vw,380px)] xl:shrink-0">
+          <Panel
+            title="What changed"
+            aside={`${n} days`}
+            className="!gap-1 !p-4 xl:min-h-0 xl:flex-1 [&_h2]:!text-lg"
+          >
+            <div className="-mx-1 flex flex-col gap-0.5 px-1 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+              {notes.map((o) => (
+                <button
+                  key={o.title}
+                  type="button"
+                  aria-pressed={o.k === sel}
+                  onClick={() => {
+                    setSel(o.k);
+                    setHover(null);
+                  }}
+                  className={`${ROW} cursor-pointer items-start`}
+                >
+                  <span className={`mt-0.5 ${TONE[o.tone].text}`}>
+                    <StatusIcon tone={o.tone} size={20} strokeWidth={2.2} />
                   </span>
-                )}
-                {attached ? 'Attached to your next report' : 'Attach to next report'}
-              </button>
-              <span className="text-[13px] text-muted">
-                Reaches Earth {MISSIONS[mission].delay} after sending
-              </span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-[15px] font-medium">{o.title}</span>
+                    <span className="text-sm leading-5 text-text">{o.text}</span>
+                  </span>
+                </button>
+              ))}
             </div>
           </Panel>
+          <section
+            aria-labelledby="note-h"
+            className="flex shrink-0 flex-col gap-2.5 rounded-[18px] border border-line bg-surface p-4"
+          >
+            <button
+              type="button"
+              aria-expanded={noteOpen || attached}
+              aria-controls="note-body"
+              onClick={() => setNoteOpen((o) => !o)}
+              className="flex w-full cursor-pointer items-center justify-between gap-2 text-left"
+            >
+              <h2 id="note-h" className="m-0 text-lg font-medium tracking-[-0.01em]">
+                Note for your flight surgeon
+              </h2>
+              <span className="flex items-center gap-2 text-[13px] text-muted">
+                {attached ? 'Attached' : note ? 'Draft' : 'Add'}
+                <IconChevronRight
+                  size={18}
+                  className={`transition-transform ${noteOpen ? 'rotate-90' : ''}`}
+                />
+              </span>
+            </button>
+            {noteOpen && (
+              <div id="note-body" className="flex flex-col gap-2.5">
+                <label htmlFor="note" className="text-sm leading-5 text-text">
+                  Anything that explains these lines, like a hard workout, a late night or a new
+                  medicine.
+                </label>
+                <textarea
+                  id="note"
+                  rows={2}
+                  value={note}
+                  onChange={(e) => {
+                    setNote(e.target.value);
+                    setAttached(false);
+                  }}
+                  placeholder="e.g. Coffee before the BP check on day 142."
+                  className="resize-y rounded-xl border border-line-2 bg-sunk p-3 text-base text-ink outline-none placeholder:text-faint focus:border-accent"
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAttached(true)}
+                    className={btn(
+                      'secondary',
+                      `cursor-pointer px-4 ${attached ? '!border-ok/45' : ''}`,
+                    )}
+                  >
+                    {attached && (
+                      <span className="text-ok">
+                        <IconCheckCircle size={18} strokeWidth={2.4} />
+                      </span>
+                    )}
+                    {attached ? 'Attached to your next report' : 'Attach to next report'}
+                  </button>
+                  <span className="text-[13px] text-muted">
+                    Reaches Earth {MISSIONS[mission].delay} after sending
+                  </span>
+                </div>
+              </div>
+            )}
+          </section>
         </div>
 
         {/* Column B: big chart + small multiples */}
-        <div className="flex min-w-0 flex-[1_1_640px] animate-chc-in flex-col gap-[18px] [animation-delay:120ms]">
-          <Panel className={`flex-1 !gap-4 ${TONE[lastTone].border}`}>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 animate-chc-in flex-col gap-3.5 [animation-delay:120ms] xl:min-h-0 xl:flex-1">
+          <Panel
+            className={`!gap-3 !p-4 xl:min-h-0 xl:flex-1 ${lastTone === 'watch' ? 'border-watch/45' : TONE[lastTone].border}`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <div className="flex min-w-0 flex-col gap-0.5">
                 <div className="flex items-baseline gap-3">
-                  <h2 className="m-0 text-[26px] leading-8 font-medium tracking-[-0.02em]">
+                  <h2 className="m-0 text-[22px] leading-7 font-medium tracking-[-0.02em]">
                     {g.c.name}
                   </h2>
                   <span className="font-mono text-[13px] text-muted">
                     {n} days · {g.c.unit}
                   </span>
                 </div>
-                <span className="text-[15px] text-text">
+                <span className="text-sm text-text">
                   {g.dir}. {g.inRange} of {g.points.length} readings in your range
                   {g.latestToday ? '.' : `, latest on day ${g.last?.day ?? ''}.`}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="flex items-baseline gap-1.5">
-                  <span className="text-[40px] leading-[44px] font-medium tracking-[-0.03em] tabular-nums">
+                  <span className="font-mono text-[34px] leading-none font-medium tracking-[-0.04em] tabular-nums">
                     {g.last?.value ?? '--'}
                   </span>
                   <span className="font-mono text-base text-text">{g.c.unit}</span>
@@ -224,7 +257,7 @@ export function Trends() {
 
             {g.points.length >= 3 ? (
               <>
-                <div className="flex min-h-[300px] flex-1 gap-2">
+                <div className="flex min-h-[300px] flex-1 gap-2 xl:min-h-[140px]">
                   <div className="relative w-10 shrink-0">
                     {yLabels.map((v) => (
                       <span
@@ -248,10 +281,10 @@ export function Trends() {
                       aria-hidden="true"
                       className="absolute inset-0 size-full"
                     >
-                      <path d={g.bandPath} fill="rgba(74,222,155,0.08)" />
+                      <path d={g.bandPath} fill="rgba(233,237,243,0.06)" />
                       <path
                         d={g.edgePath}
-                        stroke="rgba(74,222,155,0.35)"
+                        stroke="rgba(233,237,243,0.3)"
                         strokeDasharray="4 4"
                         vectorEffect="non-scaling-stroke"
                       />
@@ -340,7 +373,7 @@ export function Trends() {
                 </div>
               </>
             ) : (
-              <div className="flex min-h-[300px] flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-line-2">
+              <div className="flex min-h-[300px] flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-line-2 xl:min-h-[140px]">
                 <span className="text-lg font-medium">Log 3 readings to see a trend</span>
                 <span className="text-[15px] text-muted">
                   {g.points.length} logged in this range so far.
@@ -353,7 +386,7 @@ export function Trends() {
 
             <div className="flex flex-wrap gap-4 text-[13px] font-medium text-muted">
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-4 rounded-sm bg-ok-t outline outline-ok/30" />
+                <span className="h-2.5 w-4 rounded-sm bg-ink/6 outline outline-ink/30" />
                 Your range
               </span>
               {sel === 'bp' && (
@@ -380,11 +413,13 @@ export function Trends() {
                 </span>
                 Act now
               </span>
-              <span className="ml-auto font-normal">Hover the chart to read a day</span>
+              <span className="ml-auto hidden font-normal 2xl:inline">
+                Hover the chart to read a day
+              </span>
             </div>
           </Panel>
 
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
+          <div className="grid shrink-0 grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
             {TREND_KEYS.map((k) => (
               <SmallMultiple
                 key={k}
@@ -400,7 +435,7 @@ export function Trends() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -427,26 +462,25 @@ function SmallMultiple({
       aria-pressed={on}
       onClick={onPick}
       aria-label={`${g.c.name}, latest ${g.last?.value ?? '--'} ${g.c.unit}, ${TONE[tone].label}. ${inRange}`}
-      className={`flex cursor-pointer flex-col gap-2 rounded-[20px] border bg-surface p-3.5 text-left transition hover:-translate-y-0.5 ${on ? 'border-ink/55' : TONE[tone].border}`}
+      title={inRange}
+      className={`flex min-w-0 cursor-pointer flex-col items-start gap-1.5 rounded-[16px] border bg-surface px-3 py-2.5 text-left transition hover:-translate-y-0.5 ${on ? 'border-ink/55 bg-raised' : tone === 'watch' ? 'border-watch/45' : TONE[tone].border}`}
     >
-      <span className="flex items-center justify-between gap-2">
-        <span className="text-[15px] font-medium">{g.c.name}</span>
-        <StatusPill tone={tone} />
-      </span>
-      <span className="flex items-baseline gap-1.5">
-        <span className="text-[26px] leading-8 font-medium tabular-nums">
+      <span className="w-full truncate text-sm font-medium text-text">{g.c.name}</span>
+      <span className="flex items-baseline gap-1">
+        <span className="font-mono text-[22px] leading-7 font-medium tracking-[-0.03em] tabular-nums">
           {g.last?.value ?? '--'}
         </span>
-        <span className="font-mono text-[13px] text-text">{g.c.unit}</span>
+        <span className="font-mono text-[12px] text-text">{g.c.unit}</span>
       </span>
-      <span className="relative h-12 rounded-md bg-sunk">
+      <StatusPill tone={tone} />
+      <span className="relative hidden h-10 w-full rounded-md bg-sunk min-[1700px]:block">
         <svg
           viewBox="0 0 1000 100"
           preserveAspectRatio="none"
           aria-hidden="true"
           className="absolute inset-0 size-full"
         >
-          <path d={g.bandPath} fill="rgba(74,222,155,0.08)" />
+          <path d={g.bandPath} fill="rgba(233,237,243,0.06)" />
           <polyline
             points={g.pts[0]}
             fill="none"
@@ -475,7 +509,6 @@ function SmallMultiple({
             />
           ))}
       </span>
-      <span className="font-mono text-[13px] text-muted">{inRange}</span>
     </button>
   );
 }

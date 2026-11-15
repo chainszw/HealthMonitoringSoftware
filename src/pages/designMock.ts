@@ -27,6 +27,8 @@ export interface VitalTile {
   data?: number[];
   min?: number;
   max?: number;
+  /** Normal range [low, high] drawn as a band behind the sparkline (mock values). */
+  band?: [number, number];
 }
 
 export function dashboardVitals(alert: boolean): VitalTile[] {
@@ -44,6 +46,7 @@ export function dashboardVitals(alert: boolean): VitalTile[] {
           data: [62, 66, 63, 65, 61, 64, 92],
           min: 40,
           max: 110,
+          band: [60, 100],
         }
       : {
           tone: 'normal',
@@ -56,6 +59,7 @@ export function dashboardVitals(alert: boolean): VitalTile[] {
           data: [62, 66, 63, 65, 61, 64, 64],
           min: 40,
           max: 110,
+          band: [60, 100],
         },
     alert
       ? {
@@ -70,6 +74,7 @@ export function dashboardVitals(alert: boolean): VitalTile[] {
           data: [118, 121, 120, 124, 122, 134, 156],
           min: 90,
           max: 165,
+          band: [90, 129],
         }
       : {
           tone: 'watch',
@@ -83,6 +88,7 @@ export function dashboardVitals(alert: boolean): VitalTile[] {
           data: [118, 121, 120, 124, 122, 126, 134],
           min: 90,
           max: 165,
+          band: [90, 129],
         },
     {
       tone: 'normal',
@@ -95,6 +101,7 @@ export function dashboardVitals(alert: boolean): VitalTile[] {
       data: [98, 97, 98, 98, 97, 98, 98],
       min: 90,
       max: 100,
+      band: [95, 100],
     },
     {
       tone: 'normal',
@@ -107,6 +114,7 @@ export function dashboardVitals(alert: boolean): VitalTile[] {
       data: [36.6, 36.8, 36.7, 36.9, 36.7, 36.6, 36.7],
       min: 35.5,
       max: 38.5,
+      band: [36.1, 37.4],
     },
     { label: 'Glucose', short: 'glucose', unit: 'mg/dL', meaning: 'Best taken before lunch.' },
     {
@@ -121,6 +129,7 @@ export function dashboardVitals(alert: boolean): VitalTile[] {
       data: [7, 6.6, 6.8, 6.1, 5.8, 5.6, 5.4],
       min: 4,
       max: 9,
+      band: [7, 9],
     },
   ];
 }

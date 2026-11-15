@@ -74,10 +74,11 @@ body {
   outline-offset: 2px;
 }
 
-/* Wide landscape (1920x1080 consoles): lock the app to the viewport; long panels scroll. */
-@media (min-width: 1600px) and (min-height: 1040px) {
+/* Laptops (1366x768) up to big monitors: lock the app to the viewport so no page scrolls;
+   long panels scroll inside (.chc-scroll / overflow-y-auto). Smaller screens use normal flow. */
+@media (min-width: 1280px) and (min-height: 600px) {
   .chc-fit {
-    height: 100vh;
+    height: 100dvh;
   }
   .chc-fit-row,
   .chc-fit-cols {

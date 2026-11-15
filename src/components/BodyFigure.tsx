@@ -39,7 +39,7 @@ const ANCHOR: Record<FigureSystem, [number, number]> = {
 const PLACE: Record<FigureSystem, ['left' | 'right', number]> = {
   mind: ['left', 3],
   eyes: ['right', 9],
-  heart: ['right', 26],
+  heart: ['right', 30],
   immune: ['left', 33],
   bone: ['left', 62],
 };
@@ -201,7 +201,7 @@ export function BodyFigure({ systems, selected, onSelect, hint, minHeight = 480 
       {systems.map((s) => {
         const [side, top] = PLACE[s.id];
         const on = selected === s.id;
-        const cls = `absolute box-border flex min-h-[52px] w-[156px] items-center gap-2.5 rounded-xl border py-2 pr-3 pl-2.5 text-left text-ink no-underline transition-[transform,background-color,border-color] duration-150 hover:-translate-y-0.5 hover:bg-raised ${
+        const cls = `absolute box-border flex min-h-[44px] w-[156px] items-center gap-2 rounded-xl border py-1.5 pr-2.5 pl-2.5 text-left text-ink no-underline transition-[transform,background-color,border-color] duration-150 hover:-translate-y-0.5 hover:bg-raised ${
           on
             ? 'border-ink/55 bg-raised'
             : `${s.tone === 'act' ? 'border-act-l' : 'border-ink/14'} bg-[rgba(19,24,36,0.92)]`
@@ -213,8 +213,10 @@ export function BodyFigure({ systems, selected, onSelect, hint, minHeight = 480 
               <StatusIcon tone={s.tone} size={20} strokeWidth={2.2} />
             </span>
             <span className="flex min-w-0 flex-col gap-px">
-              <span className="text-sm leading-[18px] font-medium">{s.name}</span>
-              <span className={`text-[13px] leading-[17px] font-medium ${TONE[s.tone].text}`}>
+              <span className="truncate text-sm leading-[18px] font-medium">{s.name}</span>
+              <span
+                className={`truncate text-[13px] leading-[17px] ${s.tone === 'normal' ? 'text-muted' : `font-medium ${TONE[s.tone].text}`}`}
+              >
                 {s.text}
               </span>
             </span>

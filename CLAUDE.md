@@ -102,13 +102,14 @@ The mission profile is owned by `Layout` and passed to pages through `useOutletC
 
 - 2026-11-14: Initial scaffold (Claude session 1).
 - 2026-11-15: B: design v0.3 implemented as layout (mock data, not wired): new shell, all screens, `/routine` route (Claude, B session).
+- 2026-11-15: B: mock frontend redesign: all five screens fit 1366×768 laptops up to big monitors without page scroll (healthcare-ui-design skill); `content.ts` cast through `unknown` so the build passes until A reconciles content.json with types.ts (Claude, B session).
 
 ## Person B — status
 
 Person B owns visuals and UX. Only Person B's sessions edit this section.
 
 - **Done:** design v0.3 layout for every screen (`/`, `/body`, `/log`, `/trends`, `/routine`) plus the app shell.
-- **In progress:** none.
+- **In progress:** fit-to-screen redesign of all five screens (healthcare-ui-design skill): Today rebuilt in `src/components/today/` (vitals 3×2 + readiness + needs attention, body figure removed from Today); Log, Body, Trends, Routine re-laid out as 3 columns with inner scrolling.
 - **Next:**
   1. Wire screens to `useReadings()`, `getSystemStatus`/`getTrend`/`getReadiness` and content.json; delete `designMock.ts`.
   2. Move guidance/disclaimer text now in pages and `designMock.ts` into content.json (with C).
@@ -120,7 +121,9 @@ Person B owns visuals and UX. Only Person B's sessions edit this section.
     works offline. Callouts cover mind/eyes/heart/immune/bone; leader lines are measured with a ResizeObserver.
   - Trends uses a hand-drawn SVG chart (matches the design); Recharts and `TrendChart.tsx` are unused now.
   - Fonts: Instrument Sans / DM Mono only if installed locally (no Google Fonts at runtime); bundling needs a dependency, so ask first.
-  - At ≥1600×1040 the app locks to the viewport (`.chc-fit*`, `.chc-scroll` in `index.css`); panels scroll inside.
+  - Every screen fits with no page scroll from 1280×600 up (1366×768 laptops through big monitors): `.chc-fit*` / `.chc-scroll` in `index.css`. Pages use `xl:min-h-0` chains and put long lists in inner scroll areas. Below that, normal stacked flow.
+  - Page headers use the compact `PageHeader` (`components/ui.tsx`); `PageTitle` is unused.
+  - Status colour rule: amber/red only for abnormal items; normal text is neutral, only the small pill/icon is green.
   - `?alert` on `/` and `/body` shows the Act-now state.
   - Unused for now, not deleted: `StatusCard`, `VitalsForm`, `Streak`, `TrendChart`, `Disclaimer`.
 

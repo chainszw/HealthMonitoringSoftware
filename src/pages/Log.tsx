@@ -11,7 +11,7 @@ import {
 } from '../components/icons';
 import { btn, ROW, TONE, type Tone } from '../components/tone';
 import {
-  PageTitle,
+  PageHeader,
   Panel,
   ProgressBar,
   StatusIcon,
@@ -89,8 +89,8 @@ export function Log() {
   const curRes = showResult ? res : live?.ok ? live : null;
 
   return (
-    <>
-      <PageTitle
+    <div className="flex flex-col gap-3.5 xl:min-h-0 xl:flex-1">
+      <PageHeader
         title="Log vitals"
         meta={[
           { label: 'Mission day', value: SHIP.day },
@@ -98,17 +98,17 @@ export function Log() {
           { label: 'Ship time', value: SHIP.time },
         ]}
       >
-        <span className="text-[15px] text-muted">
-          Measure, save, and you’ll get a next step straight away.
+        <span className="text-sm text-muted">
+          Measure, save, and get a next step straight away.
         </span>
-      </PageTitle>
+      </PageHeader>
 
-      <div className="chc-fit-cols flex flex-1 flex-wrap items-stretch gap-[18px]">
+      <div className="chc-fit-cols flex flex-col gap-3.5 xl:min-h-0 xl:flex-1 xl:flex-row">
         {/* Column A: today's list */}
-        <div className="flex min-w-0 flex-[0_1_360px] animate-chc-in flex-col [animation-delay:60ms]">
-          <Panel className="chc-scroll flex-1 !gap-1">
-            <div className="flex flex-col gap-2 pb-2">
-              <h2 className="m-0 text-xl font-medium tracking-[-0.015em]">Today’s list</h2>
+        <div className="flex min-w-0 animate-chc-in flex-col [animation-delay:60ms] xl:min-h-0 xl:w-[clamp(260px,21vw,340px)] xl:shrink-0">
+          <Panel className="chc-scroll flex-1 !gap-0.5 !p-4">
+            <div className="flex flex-col gap-2 pb-1">
+              <h2 className="m-0 text-lg font-medium tracking-[-0.01em]">Today’s list</h2>
               <div className="flex items-center gap-3">
                 <ProgressBar
                   value={doneCount}
@@ -136,7 +136,7 @@ export function Log() {
                   <IconClock size={20} strokeWidth={1.8} />
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-base font-medium">
+                  <span className="text-[15px] font-medium">
                     {k === 'mood' ? 'Mood check-in' : VITALS[k].name}
                   </span>
                   <span className="text-[13px] text-muted">
@@ -171,7 +171,7 @@ export function Log() {
                     <StatusIcon tone={tone} size={20} strokeWidth={2.2} />
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-base font-medium">
+                    <span className="text-[15px] font-medium">
                       {k === 'mood' ? 'Mood check-in' : VITALS[k].name}
                     </span>
                     <span className="font-mono text-[13px] text-muted">{sub}</span>
@@ -186,12 +186,13 @@ export function Log() {
         </div>
 
         {/* Column B: entry / result / mood */}
-        <div className="flex min-w-0 flex-[1_1_560px] animate-chc-in flex-col [animation-delay:120ms]">
+        <div className="flex min-w-0 animate-chc-in flex-col [animation-delay:120ms] xl:min-h-0 xl:flex-1">
           <section
-            className={`flex flex-1 flex-col gap-5 rounded-[20px] border bg-surface p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${showResult && res?.tone === 'act' ? 'border-act-l' : 'border-line'}`}
+            aria-live="polite"
+            className={`flex flex-1 flex-col gap-4 rounded-[18px] border bg-surface p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] xl:min-h-0 xl:overflow-y-auto ${showResult && res?.tone === 'act' ? 'border-act-l' : showResult && res?.tone === 'watch' ? 'border-watch/45' : 'border-line'}`}
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="m-0 text-[26px] leading-8 font-medium tracking-[-0.02em]">
+              <h2 className="m-0 text-[22px] leading-7 font-medium tracking-[-0.02em]">
                 {def ? def.name : 'Mood check-in'}
               </h2>
               <span className="font-mono text-[13px] text-muted">
@@ -211,7 +212,7 @@ export function Log() {
                       setVals({ ...vals, [f.k]: String(n) });
                     };
                     return (
-                      <div key={f.k} className="flex min-w-[240px] flex-1 flex-col gap-2">
+                      <div key={f.k} className="flex min-w-[220px] flex-1 flex-col gap-2">
                         <label htmlFor={`v-${f.k}`} className="text-[15px] font-medium text-text">
                           {f.label}
                         </label>
@@ -220,12 +221,12 @@ export function Log() {
                             type="button"
                             onClick={bump(-1)}
                             aria-label={`Lower ${f.label}`}
-                            className={btn('secondary', 'size-14 shrink-0 cursor-pointer')}
+                            className={btn('secondary', 'size-12 shrink-0 cursor-pointer')}
                           >
                             <IconMinus size={20} />
                           </button>
                           <div
-                            className={`flex h-14 min-w-0 flex-1 items-baseline gap-2 rounded-xl border bg-sunk px-4 transition-shadow focus-within:border-accent focus-within:shadow-[0_0_0_3px_rgba(90,185,252,0.16)] ${tone === 'act' ? 'border-act-l' : raw !== '' ? 'border-accent shadow-[0_0_0_3px_rgba(90,185,252,0.16)]' : 'border-line-2'}`}
+                            className={`flex h-12 min-w-0 flex-1 items-baseline gap-1.5 rounded-xl border bg-sunk px-3 transition-shadow focus-within:border-accent focus-within:shadow-[0_0_0_3px_rgba(90,185,252,0.16)] ${tone === 'act' ? 'border-act-l' : raw !== '' ? 'border-accent shadow-[0_0_0_3px_rgba(90,185,252,0.16)]' : 'border-line-2'}`}
                           >
                             <input
                               id={`v-${f.k}`}
@@ -240,15 +241,15 @@ export function Log() {
                                   [f.k]: e.target.value.replace(/[^0-9.]/g, '').slice(0, 6),
                                 })
                               }
-                              className="h-full min-w-0 flex-1 bg-transparent text-[32px] font-medium tabular-nums text-ink outline-none placeholder:text-faint focus-visible:outline-none"
+                              className="h-full min-w-0 flex-1 bg-transparent font-mono text-[26px] font-medium tabular-nums text-ink outline-none placeholder:text-faint focus-visible:outline-none"
                             />
-                            <span className="font-mono text-base text-text">{def.unit}</span>
+                            <span className="shrink-0 font-mono text-sm text-text">{def.unit}</span>
                           </div>
                           <button
                             type="button"
                             onClick={bump(1)}
                             aria-label={`Raise ${f.label}`}
-                            className={btn('secondary', 'size-14 shrink-0 cursor-pointer')}
+                            className={btn('secondary', 'size-12 shrink-0 cursor-pointer')}
                           >
                             <IconPlus size={20} />
                           </button>
@@ -473,10 +474,14 @@ export function Log() {
         </div>
 
         {/* Column C: range + recent, or mood history */}
-        <div className="chc-scroll flex min-w-0 flex-[0_1_440px] animate-chc-in flex-col gap-[18px] [animation-delay:180ms]">
+        <div className="chc-scroll flex min-w-0 animate-chc-in flex-col gap-3.5 [animation-delay:180ms] xl:w-[clamp(300px,25vw,420px)] xl:shrink-0">
           {def && !isMood && (
             <>
-              <Panel title="Your range" aside="last 7 days" className="!gap-5">
+              <Panel
+                title="Your range"
+                aside="last 7 days"
+                className="shrink-0 !gap-3.5 !p-4 [&_h2]:!text-lg"
+              >
                 {def.bars.map((b) => {
                   const pct = (x: number) =>
                     `${Math.max(0, Math.min(100, ((x - b.min) / (b.max - b.min)) * 100)).toFixed(1)}%`;
@@ -488,8 +493,8 @@ export function Log() {
                       ? TONE[curRes.tone].hex
                       : '#e9edf3';
                   return (
-                    <div key={b.k} className="flex flex-col gap-2">
-                      <div className="flex justify-between text-[15px]">
+                    <div key={b.k} className="flex flex-col gap-1.5">
+                      <div className="flex justify-between text-sm">
                         <span className="font-medium">{b.label}</span>
                         <span className="font-mono text-muted">
                           {b.lo}–{b.hi}
@@ -498,10 +503,10 @@ export function Log() {
                       <div
                         role="img"
                         aria-label={`${b.label}: your range ${b.lo} to ${b.hi}${hasCur ? `, this reading ${cv}` : ''}`}
-                        className="relative h-9 rounded-lg bg-sunk"
+                        className="relative h-7 rounded-lg bg-sunk"
                       >
                         <div
-                          className="absolute inset-y-0 rounded-md bg-ok-t"
+                          className="absolute inset-y-0 rounded-md bg-ink/8 outline outline-ink/20"
                           style={{
                             left: pct(b.lo),
                             width: `${(((b.hi - b.lo) / (b.max - b.min)) * 100).toFixed(1)}%`,
@@ -512,7 +517,7 @@ export function Log() {
                           .map((x, i) => (
                             <span
                               key={i}
-                              className="absolute top-2.5 bottom-2.5 w-0.5 -translate-x-1/2 rounded bg-ink/45"
+                              className="absolute top-2 bottom-2 w-0.5 -translate-x-1/2 rounded bg-ink/45"
                               style={{ left: pct(x) }}
                             />
                           ))}
@@ -535,7 +540,7 @@ export function Log() {
                 })}
                 <div className="flex flex-wrap gap-4 text-[13px] text-muted">
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="h-2.5 w-4 rounded-sm bg-ok-t outline outline-ok/30" />
+                    <span className="h-2.5 w-4 rounded-sm bg-ink/8 outline outline-ink/30" />
                     Your range
                   </span>
                   <span className="inline-flex items-center gap-1.5">
@@ -554,7 +559,7 @@ export function Log() {
           {isMood && <MoodHistory latest={moodSaved ? mood : null} />}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -612,13 +617,13 @@ function RecentReadings({
           Open trends
         </Link>
       }
-      className="!gap-1"
+      className="shrink-0 !gap-0.5 !p-4 [&_h2]:!text-lg"
     >
       {rows.slice(0, 5).map((r, i) => (
-        <div key={i} className="flex items-center gap-3 border-t border-line py-2.5">
+        <div key={i} className="flex items-center gap-3 border-t border-line py-2">
           <span className="flex-1 font-mono text-[13px] text-muted">{r.day}</span>
           <span className="flex items-baseline gap-1.5">
-            <span className="text-lg font-medium tabular-nums">{r.value}</span>
+            <span className="font-mono text-base font-medium tabular-nums">{r.value}</span>
             <span className="font-mono text-[13px] text-text">{def.unit}</span>
           </span>
           <StatusPill tone={r.tone} />
@@ -638,11 +643,15 @@ function MoodHistory({ latest }: { latest: number | null }) {
       ? [...MOOD_HISTORY.days.slice(1).map(String), 'Today']
       : MOOD_HISTORY.days.map(String);
   return (
-    <Panel title="Your last 7 check-ins" aside="1 to 5" className="!gap-4">
+    <Panel
+      title="Your last 7 check-ins"
+      aside="1 to 5"
+      className="shrink-0 !gap-3 !p-4 [&_h2]:!text-lg"
+    >
       <div
         role="img"
         aria-label={`Mood check-ins, oldest to newest: ${values.join(', ')} out of 5`}
-        className="flex h-[190px] items-end gap-2"
+        className="flex h-[150px] items-end gap-2"
       >
         {values.map((v, i) => (
           <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1.5">
@@ -653,7 +662,7 @@ function MoodHistory({ latest }: { latest: number | null }) {
             <div
               className="w-full rounded-t-md"
               style={{
-                height: `${(v / 5) * 150}px`,
+                height: `${(v / 5) * 110}px`,
                 background: v <= 2 ? 'rgba(251,191,74,0.55)' : 'rgba(233,237,243,0.32)',
               }}
             />

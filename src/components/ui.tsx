@@ -135,6 +135,38 @@ export function PageTitle({
   );
 }
 
+/** Compact page header (about 44px): title, inline meta (mono values), actions on the right. */
+export function PageHeader({
+  title,
+  meta,
+  children,
+}: {
+  title: string;
+  meta?: { label: string; value: ReactNode }[];
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex shrink-0 animate-chc-in flex-wrap items-center justify-between gap-x-6 gap-y-2">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-6 gap-y-1">
+        <h1 className="m-0 text-[28px] leading-9 font-medium tracking-[-0.025em]">{title}</h1>
+        {meta && (
+          <dl className="m-0 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
+            {meta.map((m) => (
+              <div key={m.label} className="flex items-baseline gap-1.5">
+                <dt>{m.label}</dt>
+                <dd className="m-0 font-mono text-[15px] font-medium text-ink tabular-nums">
+                  {m.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+      {children && <div className="flex flex-wrap items-center gap-2.5">{children}</div>}
+    </div>
+  );
+}
+
 export function ProgressBar({
   value,
   max,
