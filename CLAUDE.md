@@ -195,6 +195,7 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   "Send report"; `designMock.ts` and `?alert` removed.
 - 2026-11-15: Sync fix: local edits/deletes are versioned after the reading's previous version, so a
   same-millisecond edit + delete no longer loses the delete (failing `sync.e2e` test, also on `main`).
+- 2026-11-15: B: mission-aware animated space background (`SpaceBackdrop`), translucent header and rail.
 
 ## Person B — status
 
@@ -225,6 +226,9 @@ Person B owns visuals and UX. Only Person B's sessions edit this section.
   - Page headers use the compact `PageHeader` (`components/ui.tsx`); `PageTitle` is unused.
   - Status colour rule: amber/red only for abnormal items; normal text is neutral, only the small pill/icon is green.
   - Demo: the seed ends on amber BP 134/86 after three short nights; log e.g. 160/125 to show Act now.
+  - Background: `SpaceBackdrop.tsx` draws one fixed canvas behind the shell (slow star drift plus the limb of the
+    mission's planet: Earth/Moon/Mars, colours in `MISSION_SKY`, cross-fades on mission change). 30 fps, pauses in
+    hidden tabs, still frame with reduced motion, no dependency. Cards stay solid; header and rail are `bg-bg/60`.
   - Unused for now, not deleted: `StatusCard`, `VitalsForm`, `Streak`, `TrendChart`, `Disclaimer`.
 
 ## Person A — status

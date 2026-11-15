@@ -17,6 +17,7 @@ import {
   IconTrend,
   Logo,
 } from './icons';
+import { SpaceBackdrop } from './SpaceBackdrop';
 import { BTN } from './tone';
 import { useNow } from './useNow';
 import { dueEntries } from './vitals';
@@ -74,8 +75,9 @@ export function Layout() {
   };
 
   return (
-    <div className="chc-fit flex min-h-screen flex-col bg-bg text-base text-ink">
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-line px-6 py-3.5">
+    <div className="chc-fit relative isolate flex min-h-screen flex-col text-base text-ink">
+      <SpaceBackdrop mission={mission} />
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-line bg-bg/60 px-6 py-3.5 backdrop-blur-sm">
         <NavLink to="/" className="flex items-center gap-3 text-ink no-underline">
           <Logo />
           <span className="text-[19px] font-medium tracking-[-0.02em]">Crew Health Console</span>
@@ -131,7 +133,7 @@ export function Layout() {
       <div className="chc-fit-row flex flex-1 flex-wrap items-stretch">
         <nav
           aria-label="Main"
-          className="box-border flex max-w-full flex-[1_1_96px] flex-wrap content-start gap-1.5 border-r border-line px-2.5 py-4"
+          className="box-border flex max-w-full flex-[1_1_96px] flex-wrap content-start gap-1.5 border-r border-line bg-bg/60 px-2.5 py-4"
         >
           {NAV.map(({ to, label, Icon }) => {
             const count = to === '/log' && dueCount ? String(dueCount) : undefined;
