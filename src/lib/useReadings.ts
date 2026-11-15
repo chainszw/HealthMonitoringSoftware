@@ -1,11 +1,26 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { API_TOKEN, API_URL } from './apiConfig';
+import {
+  getRoutineDay,
+  localDay,
+  markDone,
+  markUndone,
+  routineStreak,
+  routineWeek,
+  type RoutineTask,
+} from './routine';
 import { signIn, signOut } from './session';
+import { getMissionDay } from './today';
 import {
   addReading,
   clearReadings,
   deleteReading,
   getReadingsSnapshot,
+  getRoutineSnapshot,
+  loadMissionStart,
+  loadRoutineLog,
+  saveRoutineLog,
+  subscribeRoutine,
   getSessionSnapshot,
   loadMission,
   resetToSeed,
@@ -69,4 +84,32 @@ export function useMission() {
     setMissionState(id);
   }, []);
   return { mission, setMission };
+}
+
+/**
+ * Routine state for a task list (the tasks' text comes from content.json): today's items with
+ * done times, the streak of fully done days, the last 7 days, and toggle(taskId).
+ */
+export function useRoutine<T extends RoutineTask>(tasks: T[]) {
+  const log = useSyncExternalStore(subscribeRoutine, getRoutineSnapshot);
+  const toggle = useCallback((taskId: string) => {
+    const current = loadRoutineLog();
+    const done = current[localDay(new Date())]?.[taskId];
+    saveRoutineLog(done ? markUndone(current, taskId) : markDone(current, taskId));
+  }, []);
+  return useMemo(
+    () => ({
+      day: getRoutineDay(tasks, log),
+      streak: routineStreak(tasks, log),
+      week: routineWeek(tasks, log),
+      toggle,
+    }),
+    [tasks, log, toggle],
+  );
+}
+
+/** Mission day (1-based) from the stored mission start, or from the first reading. */
+export function useMissionDay(): number {
+  const readings = useSyncExternalStore(subscribeReadings, getReadingsSnapshot);
+  return getMissionDay(readings, new Date(), loadMissionStart());
 }

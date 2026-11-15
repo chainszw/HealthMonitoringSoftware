@@ -91,7 +91,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - `validateValue(indicator, raw)` → `{ ok: true, value } | { ok: false, error }`. Run it before saving a reading.
 - localStorage keys: `chc:v1:readings`, `chc:v1:mission`, `chc:v1:outbox` (changes not yet sent to the
   server, latest per id), `chc:v1:sync` ({ cursor, lastSyncedAt }), `chc:v1:session` ({ token, crew }:
-  who is signed in for sync). Bump `v1` if the Reading shape changes incompatibly. Old ids
+  who is signed in for sync), `chc:v1:routine` (routine completions per local day),
+  `chc:v1:missionStart` (optional mission start, ISO). Bump `v1` if the Reading shape changes incompatibly. Old ids
   `glucose`/`temperature` are migrated on load.
 - API wire types (`src/lib/syncProtocol.ts`, shared by app and server): `SyncChange` = Reading +
   `updatedAt` + `deletedAt?`; `POST /sync { since, changes, mission? }` → `{ changes, cursor, rejected }`;
@@ -177,6 +178,9 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - 2026-11-15: B: design v0.3 implemented as layout (mock data, not wired): new shell, all screens, `/routine` route (Claude, B session).
 - 2026-11-15: B: mock frontend redesign: all five screens fit 1366×768 laptops up to big monitors without page scroll (healthcare-ui-design skill); `content.ts` cast through `unknown` so the build passes until A reconciles content.json with types.ts (Claude, B session).
 - 2026-11-15: A: merged B's redesign into the backend work; `content.ts` keeps A's `normalizeContent` adapter, which replaces B's temporary cast.
+- 2026-11-15: A: logic for B's new screens: `src/lib/today.ts` (combined blood pressure, needs-attention list,
+  due checks, readiness breakdown, mission day) and `src/lib/routine.ts` (completions, streak, week);
+  hooks `useRoutine(tasks)`, `useMissionDay()`; keys `chc:v1:routine`, `chc:v1:missionStart`.
 
 ## Person B — status
 
@@ -215,6 +219,7 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - `a/export` (roadmap phase 5): shared CSV/JSON export builder, `GET /export.csv` and `/export.json` (same access as reading), `exportDeviceReadings()` for offline export, `fetchExport()`. Built on `a/surgeon-overview`. Verified live: surgeon exports Mira's sleep as CSV; astronauts get 403 for others.
   - `a/comms-delay` (roadmap phase 6): mission per astronaut, `arrives_at` on writes from space, Earth-side filtering for flight surgeons, `inTransit` in the overview, `npm run demo:comms`. Built on `a/export`. Verified live at x0.01: Earth saw Mira's 118 bpm only after 13 s.
   - `a/deploy` (roadmap phase 7, deploy-ready): production bundle, Dockerfile, render.yaml, CI image smoke test, wildcard CORS, security headers, body limits, request log, graceful shutdown. Built on `a/comms-delay`. Verified locally: the bundle ran with plain `node`, the bundled crew tool made the demo crew, the full API walkthrough passed, CORS allowed a Vercel preview origin and blocked others, 70 KB body → 413, Ctrl+C closed the database cleanly.
+  - `a/frontend-logic`: logic for B's redesigned screens (Today, Routine): `today.ts`, `routine.ts`, `useRoutine`, `useMissionDay`, with tests.
 - **In progress:** none.
 - **Next:**
   1. Phase 7, the actual deploy (needs the team): get the work onto GitHub `main` (merge #2, then the stacked branches), create the Render service from `render.yaml` (paid instance for the disk), set `CORS_ORIGINS`, create the crew in the Render shell, set `VITE_API_URL` on Vercel.
@@ -249,4 +254,7 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - A frontend outside this repo can call the HTTP API directly (send `Authorization: Bearer <token>`): see `docs/backend-roadmap.md`.
   - Flight-surgeon console: `fetchCrewOverview(apiUrl, token, alertDays?)`, `fetchCrewMemberOverview(...)`, `fetchCrewTrend(apiUrl, token, crewId, indicatorId, days?)` and `fetchMe(...)` from `src/lib/crewApi.ts`. Each resolves to `{ ok: true, data }` or `{ ok: false, status, error }` (never throws). Response types in `src/lib/syncProtocol.ts`; trend points have the same shape as `getTrend()`, so `TrendChart` can draw them.
   - Export: `exportDeviceReadings(readings, 'csv' | 'json', session?.crew)` from `src/lib/exportData.ts` returns `{ filename, mimeType, content }` offline; a console uses `fetchExport(apiUrl, token, format, filters)`. Saving the file (Blob download) is UI.
+  - **Use `getStatus()` (content.json bands), not the thresholds in `designMock.ts`.** They disagree: e.g. heart rate normal is 60–100 in content.json but 50–90 in the mock; sleep is red under 6 h vs under 4.5 h; blood pressure normal is 101–119 systolic vs under 130/85. Hazard ids are content.json's (`isolation_confinement`, `distance_from_earth`, `altered_gravity`, `hostile_environment`, `radiation`), not the mock's short ones.
+  - Today screen (`src/lib/today.ts`, pass `readings` from `useReadings()`): `bloodPressureStatus(readings)` → `{ level, action, display: '134/86', systolic?, diastolic? }` (worse of the two, per content.json); `getAttention(readings)` → amber/red items, red first, with `name`, `value`, `unit`, `label`, `action`, `actionSteps` (blood pressure as one item, key `'bp'`); `getDueChecks(readings)` → daily checks not yet logged today (glucose is not daily); `getReadinessBreakdown(readings, now?, routine?)` → `{ score, streak, level, vitals: { ok, off }, sleep: { hours?, target, level }, routine? }`; `useMissionDay()` → day number (from `chc:v1:missionStart`, else the first reading).
+  - Routine screen: `useRoutine(tasks)` (tasks `{ id, time?: 'HH:MM', ...your fields }`, text from content.json) → `{ day: { items: [{ task, doneAt?, overdue }], done, total }, streak, week: [{ day, done: 0–1 }] x7, toggle(taskId) }`. Pass `day.done`/`day.total` to `getReadinessBreakdown` for the Routine part.
   - Comms delay: the app already sends the selected mission with every sync. A flight-surgeon screen can show each astronaut's `commsDelaySeconds` and `inTransit: { count, nextArrivalAt }` from the overview ("1 reading in transit from Mars, arrives in 8 s").

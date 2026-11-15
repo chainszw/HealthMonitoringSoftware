@@ -1,4 +1,5 @@
 import { generateSeed } from '../data/seed';
+import type { RoutineLog } from './routine';
 import type { CrewMember, SyncChange } from './syncProtocol';
 import type { MissionProfileId, Reading } from './types';
 
@@ -12,6 +13,10 @@ export const OUTBOX_KEY = 'chc:v1:outbox';
 export const SYNC_KEY = 'chc:v1:sync';
 /** The crew member signed in on this device and their sync token. */
 export const SESSION_KEY = 'chc:v1:session';
+/** Routine completions per local day (see routine.ts). */
+export const ROUTINE_KEY = 'chc:v1:routine';
+/** Optional mission start (ISO); without it, mission day counts from the first reading. */
+export const MISSION_START_KEY = 'chc:v1:missionStart';
 const DEFAULT_MISSION: MissionProfileId = 'iss';
 
 // Fallback when localStorage is unavailable (private mode, blocked, tests).
@@ -66,6 +71,7 @@ type Listener = () => void;
 const readingListeners = new Set<Listener>();
 const outboxListeners = new Set<Listener>();
 const sessionListeners = new Set<Listener>();
+const routineListeners = new Set<Listener>();
 let readingsCache: Reading[] | null = null;
 
 const notify = (listeners: Set<Listener>) => listeners.forEach((l) => l());
@@ -328,4 +334,42 @@ export function loadMission(): MissionProfileId {
 
 export function saveMission(id: MissionProfileId): void {
   write(MISSION_KEY, id);
+}
+
+// --- Routine and mission start ---------------------------------------------------
+
+let routineCache: RoutineLog | undefined;
+
+export function loadRoutineLog(): RoutineLog {
+  const parsed = readJson(ROUTINE_KEY);
+  return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+    ? (parsed as RoutineLog)
+    : {};
+}
+
+/** Cached routine log for rendering (same object until it changes). */
+export function getRoutineSnapshot(): RoutineLog {
+  routineCache ??= loadRoutineLog();
+  return routineCache;
+}
+
+export function saveRoutineLog(log: RoutineLog): void {
+  write(ROUTINE_KEY, JSON.stringify(log));
+  routineCache = log;
+  notify(routineListeners);
+}
+
+export function subscribeRoutine(listener: Listener): () => void {
+  routineListeners.add(listener);
+  return () => routineListeners.delete(listener);
+}
+
+export function loadMissionStart(): string | undefined {
+  return read(MISSION_START_KEY) ?? undefined;
+}
+
+/** Set (ISO date or time) or clear (undefined) the mission start. */
+export function saveMissionStart(iso: string | undefined): void {
+  if (iso) write(MISSION_START_KEY, iso);
+  else remove(MISSION_START_KEY);
 }
