@@ -1,15 +1,18 @@
 import { Suspense, useState, type ComponentType } from 'react';
-import { NavLink, Outlet } from 'react-router';
+import { NavLink, Outlet, useLocation } from 'react-router';
 import { content } from '../data/content';
+import { getScenario } from '../data/scenarios';
 import { formatDelay } from '../lib/format';
 import { requestSync } from '../lib/sync';
 import type { MissionProfileId } from '../lib/types';
 import { useMission, useReadings, useSync } from '../lib/useReadings';
 import { AccountMenu } from './AccountMenu';
+import { CalmDots } from './CalmDots';
 import {
   IconBody,
   IconCalendarCheck,
   IconCheckCircle,
+  IconCube,
   IconGrid,
   IconPlusCircle,
   IconSend,
@@ -17,6 +20,7 @@ import {
   IconTrend,
   Logo,
 } from './icons';
+import { openStart, useStart } from './startGate';
 import { BTN } from './tone';
 import { useNow } from './useNow';
 import { dueEntries } from './vitals';
@@ -37,6 +41,7 @@ const NAV: {
   Icon: ComponentType<{ size?: number; strokeWidth?: number }>;
 }[] = [
   { to: '/', label: 'Today', Icon: IconGrid },
+  { to: '/zoe', label: 'ZOĒ device', Icon: IconCube },
   { to: '/log', label: 'Log vitals', Icon: IconPlusCircle },
   { to: '/body', label: 'Body view', Icon: IconBody },
   { to: '/trends', label: 'Trends', Icon: IconTrend },
@@ -49,6 +54,19 @@ export function Layout() {
   const sync = useSync();
   const now = useNow();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  const start = useStart();
+  const dataChip =
+    start.mode === 'live'
+      ? { dot: 'bg-ok', text: 'Live data' }
+      : start.mode === 'offline'
+        ? { dot: 'bg-watch', text: 'Offline, saved data' }
+        : start.mode === 'demo'
+          ? {
+              dot: 'bg-watch',
+              text: `Demo: ${start.scenario ? getScenario(start.scenario).name : 'scenario'}`,
+            }
+          : null;
   const profile = content.missionProfiles.find((p) => p.id === mission);
   const delaySeconds = profile?.commsDelaySeconds.max ?? 0;
   const delay = formatDelay(delaySeconds);
@@ -74,12 +92,26 @@ export function Layout() {
   };
 
   return (
-    <div className="chc-fit flex min-h-screen flex-col bg-bg text-base text-ink">
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-line px-6 py-3.5">
-        <NavLink to="/" className="flex items-center gap-3 text-ink no-underline">
-          <Logo />
-          <span className="text-[19px] font-medium tracking-[-0.02em]">Crew Health Console</span>
-        </NavLink>
+    <div className="chc-fit flex min-h-screen flex-col text-base text-ink">
+      <CalmDots />
+      <header className="chc-glass relative z-20 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-line px-6 py-3.5">
+        <div className="flex flex-wrap items-center gap-3">
+          <NavLink to="/" className="flex items-center gap-3 text-ink no-underline">
+            <Logo />
+            <span className="text-[19px] font-medium tracking-[-0.02em]">Aegis Health Console</span>
+          </NavLink>
+          {dataChip && (
+            <button
+              type="button"
+              onClick={openStart}
+              title="Back to the start screen: change data source or view"
+              className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-full border border-line-2 bg-raised px-3 text-[13px] text-text transition-colors hover:border-accent/60"
+            >
+              <span className={`size-2 rounded-full ${dataChip.dot}`} />
+              {dataChip.text}
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <div
             role="group"
@@ -131,7 +163,7 @@ export function Layout() {
       <div className="chc-fit-row flex flex-1 flex-wrap items-stretch">
         <nav
           aria-label="Main"
-          className="box-border flex max-w-full flex-[1_1_96px] flex-wrap content-start gap-1.5 border-r border-line px-2.5 py-4"
+          className="box-border flex max-w-full flex-[1_1_96px] flex-wrap content-start gap-1.5 border-r border-line bg-sunk px-2.5 py-4"
         >
           {NAV.map(({ to, label, Icon }) => {
             const count = to === '/log' && dueCount ? String(dueCount) : undefined;
@@ -161,7 +193,10 @@ export function Layout() {
 
         <main className="box-border flex min-w-0 flex-[999_1_560px] flex-col gap-4 px-6 py-4">
           <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
-            <Outlet context={{ mission }} />
+            {/* Keyed on the route so each screen glides in when you switch. */}
+            <div key={pathname} className="flex animate-chc-in flex-col gap-4 xl:min-h-0 xl:flex-1">
+              <Outlet context={{ mission }} />
+            </div>
           </Suspense>
           <footer className="flex flex-wrap justify-between gap-x-4 gap-y-1.5 border-t border-line px-0.5 pt-2.5 text-[13px] leading-[19px] text-muted">
             <span>

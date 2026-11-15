@@ -1,7 +1,16 @@
-import { useMemo, useState, type ComponentType } from 'react';
+import { Suspense, useMemo, useState, type ComponentType } from 'react';
+import { LazyAnatomyStage } from '../components/anatomy/lazy';
+import {
+  ORGAN_SYSTEM,
+  organTint,
+  SYSTEM_ORGAN,
+  type Layer,
+  type OrganInfo,
+  type Sex,
+} from '../components/anatomy/organs';
 import { Link } from 'react-router';
 import { BodyFigure, type FigureCallout } from '../components/BodyFigure';
-import { FIGURE_LABEL, FIGURE_SYSTEMS } from '../components/figure';
+import { FIGURE_LABEL, FIGURE_SYSTEMS, heartbeatSeconds } from '../components/figure';
 import {
   IconArrowRight,
   IconBox,
@@ -121,6 +130,18 @@ export function Body() {
       'heart',
   );
   const [factor, setFactor] = useState<string | null>(null);
+  const [sex, setSex] = useState<Sex>('male');
+  const [layer, setLayer] = useState<Layer>('xray');
+  const [organ, setOrgan] = useState<OrganInfo | null>(null);
+  const tint = useMemo(
+    () => organTint(Object.fromEntries(views.map((v) => [v.id, v.tone]))),
+    [views],
+  );
+  const pickOrgan = (o: OrganInfo | null) => {
+    setOrgan(o);
+    const system = o ? ORGAN_SYSTEM[o.id] : undefined;
+    if (system && views.some((v) => v.id === system)) setSel(system);
+  };
 
   const callouts = useMemo<FigureCallout[]>(
     () =>
@@ -170,7 +191,10 @@ export function Body() {
                   key={s.id}
                   type="button"
                   aria-pressed={sel === s.id}
-                  onClick={() => setSel(s.id)}
+                  onClick={() => {
+                    setSel(s.id);
+                    setOrgan(null);
+                  }}
                   className={`${ROW} cursor-pointer transition-opacity ${factor && !hit ? 'opacity-45' : ''}`}
                 >
                   <span className={s.tone ? TONE[s.tone].text : 'text-muted'}>
@@ -249,19 +273,77 @@ export function Body() {
             }
             className="min-h-[520px] flex-1 !gap-2 !p-4 xl:min-h-0 [&_h2]:!text-lg"
           >
-            <BodyFigure
-              systems={callouts}
-              selected={
-                (FIGURE_SYSTEMS as BodySystemId[]).includes(sel)
-                  ? (sel as FigureCallout['id'])
-                  : undefined
+            {/* 3D anatomy (HRA atlas): click an organ, or pick a system in the list */}
+            <Suspense
+              fallback={
+                <BodyFigure
+                  systems={callouts}
+                  selected={
+                    (FIGURE_SYSTEMS as BodySystemId[]).includes(sel)
+                      ? (sel as FigureCallout['id'])
+                      : undefined
+                  }
+                  onSelect={setSel}
+                  minHeight={0}
+                  beatSeconds={heartbeatSeconds(readings)}
+                />
               }
-              onSelect={setSel}
-              minHeight={0}
-            />
+            >
+              <LazyAnatomyStage
+                sex={sex}
+                layer={layer}
+                tint={tint}
+                selected={organ?.id ?? SYSTEM_ORGAN[sel] ?? null}
+                onSelect={pickOrgan}
+                className="relative min-h-[360px] flex-1 xl:min-h-0"
+              />
+            </Suspense>
+            {organ && (
+              <p className="m-0 text-[13px] leading-[18px] text-muted">
+                <strong className="font-medium text-ink">{organ.label}.</strong> {organ.note}
+              </p>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(
+                  [
+                    ['xray', 'X-ray'],
+                    ['surface', 'Surface'],
+                    ['organs', 'Organs'],
+                    ['bones', 'Bones'],
+                    ['circulatory', 'Heart & vessels'],
+                  ] as [Layer, string][]
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={layer === id}
+                    onClick={() => setLayer(id)}
+                    className="h-8 cursor-pointer rounded-full border border-line-2 px-3 text-[13px] text-text hover:border-accent aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div role="group" aria-label="Body model" className="flex gap-1.5">
+                {(['male', 'female'] as Sex[]).map((x) => (
+                  <button
+                    key={x}
+                    type="button"
+                    aria-pressed={sex === x}
+                    onClick={() => setSex(x)}
+                    className="h-8 cursor-pointer rounded-full border border-line-2 px-3 text-[13px] text-text capitalize hover:border-accent aria-pressed:bg-ink aria-pressed:text-bg"
+                  >
+                    {x}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Legend />
-              <span className="font-mono text-[13px] text-muted">Tap a system</span>
+              <span className="text-[11px] text-faint">
+                Anatomy: Human Reference Atlas v1.5 (HuBMAP, NLM Visible Human), CC BY 4.0
+              </span>
             </div>
           </Panel>
         </div>

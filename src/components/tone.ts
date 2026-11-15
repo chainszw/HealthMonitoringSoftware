@@ -21,7 +21,7 @@ export const TONE: Record<
 > = {
   normal: {
     label: 'Normal',
-    hex: '#4ade9b',
+    hex: '#39ff9c',
     text: 'text-ok',
     bg: 'bg-ok-t',
     border: 'border-line',
@@ -29,19 +29,19 @@ export const TONE: Record<
   },
   watch: {
     label: 'Watch',
-    hex: '#fbbf4a',
+    hex: '#ffd23f',
     text: 'text-watch',
     bg: 'bg-watch-t',
     border: 'border-line',
-    line: '#fbbf4a',
+    line: '#ffd23f',
   },
   act: {
     label: 'Act now',
-    hex: '#ff8a8a',
+    hex: '#ff4d6d',
     text: 'text-act',
     bg: 'bg-act-t',
     border: 'border-act-l',
-    line: '#ff8a8a',
+    line: '#ff4d6d',
   },
 };
 

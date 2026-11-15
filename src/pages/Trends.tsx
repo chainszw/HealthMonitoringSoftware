@@ -398,18 +398,32 @@ export function Trends() {
                         />
                       )}
                       <polyline
+                        key={g.pts[0]}
+                        className="chc-draw"
                         points={g.pts[0]}
                         fill="none"
-                        stroke="#5ab9fc"
+                        stroke="#29f0ff"
                         strokeWidth="2"
                         strokeLinejoin="round"
                         vectorEffect="non-scaling-stroke"
                       />
+                      {/* Data flowing along the line */}
+                      <polyline
+                        className="chc-flow"
+                        points={g.pts[0]}
+                        fill="none"
+                        stroke="#e8fbff"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
                       {g.pts[1] && (
                         <polyline
+                          key={g.pts[1]}
+                          className="chc-draw"
                           points={g.pts[1]}
                           fill="none"
-                          stroke="#5ab9fc"
+                          stroke="#29f0ff"
                           strokeOpacity="0.6"
                           strokeWidth="2"
                           strokeDasharray="5 4"
@@ -422,9 +436,15 @@ export function Trends() {
                       const size = p.tone === 'normal' ? (n <= 7 ? 10 : 8) : 16;
                       return (
                         <span
-                          key={p.i}
-                          className={`pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full ${p.tone === 'normal' ? 'bg-accent' : `bg-bg ${TONE[p.tone].text}`}`}
-                          style={{ left: `${p.x}%`, top: `${p.y}%`, width: size, height: size }}
+                          key={`${g.pts[0]}-${p.i}`}
+                          className={`chc-pop pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full ${p.tone === 'normal' ? 'bg-accent' : `bg-bg ${TONE[p.tone].text}`}`}
+                          style={{
+                            left: `${p.x}%`,
+                            top: `${p.y}%`,
+                            width: size,
+                            height: size,
+                            ['--d' as string]: `${(0.15 + (p.x / 100) * 0.9).toFixed(2)}s`,
+                          }}
                         >
                           {p.tone !== 'normal' && (
                             <StatusIcon tone={p.tone} size={16} strokeWidth={2.4} />
@@ -572,9 +592,11 @@ function SmallMultiple({ g, on, onPick }: { g: Geometry; on: boolean; onPick: ()
         >
           <path d={g.bandPath} fill="rgba(233,237,243,0.06)" />
           <polyline
+            key={g.pts[0]}
+            className="chc-draw"
             points={g.pts[0]}
             fill="none"
-            stroke={on ? '#5ab9fc' : 'rgba(233,237,243,0.55)'}
+            stroke={on ? '#29f0ff' : 'rgba(233,237,243,0.55)'}
             strokeWidth="1.6"
             vectorEffect="non-scaling-stroke"
           />
@@ -582,7 +604,7 @@ function SmallMultiple({ g, on, onPick }: { g: Geometry; on: boolean; onPick: ()
             <polyline
               points={g.pts[1]}
               fill="none"
-              stroke={on ? '#5ab9fc' : 'rgba(233,237,243,0.55)'}
+              stroke={on ? '#29f0ff' : 'rgba(233,237,243,0.55)'}
               strokeOpacity="0.6"
               strokeWidth="1.6"
               vectorEffect="non-scaling-stroke"

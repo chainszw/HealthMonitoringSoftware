@@ -49,7 +49,8 @@ Before committing, run `npm run lint && npm test && npm run build && npm run for
 React 19, Vite 8, TypeScript **6.0** (pinned: typescript-eslint doesn't support TS 7 yet), Tailwind 4
 via `@tailwindcss/vite` (no tailwind.config; tokens in `src/index.css` `@theme`), Recharts 3,
 Motion 14 (`import { motion } from 'motion/react'`), React Router 8 (`import … from 'react-router'`),
-Vitest 5, ESLint 10 + Prettier 3.
+Vitest 5, ESLint 10 + Prettier 3, three.js 0.187 (+ `@types/three`, dev) for the ZOĒ 3D device only
+(bundled, lazy-loaded with `/zoe`, so the app stays offline and other screens don't load it).
 Server: Hono 4 + `@hono/node-server`, SQLite via Node 24's built-in `node:sqlite` (no native module),
 run with `tsx`. The server imports `src/lib/*` and `src/data/content.ts` directly, so validation and status
 rules are shared, never copied.
@@ -63,7 +64,11 @@ rules are shared, never copied.
 | C: content    | `src/data/content.json`, README pitch, write-up                                                                                                                       |
 | A: backend    | `server/*` (db, readingsRepo, crewRepo, auth, validate, app, index, crewCli, tests, scripts), `docs/backend-roadmap.md`, `Dockerfile`, `.dockerignore`, `render.yaml` |
 
-Routes: `/` Dashboard, `/log`, `/body`, `/trends` (lazy-loaded), `/routine`.
+Routes: `/` Dashboard, `/zoe` ZOĒ device (lazy-loaded, three.js), `/log`, `/body`, `/trends`
+(lazy-loaded), `/routine`. A start screen (`StartScreen`, state in `components/startGate.ts`, in memory)
+shows before them on every load: it picks the data source (`src/lib/dataSource.ts`: real server data when
+the backend answers and you're signed in, else a random spike scenario from `src/data/scenarios.ts`) and
+the view (ZOĒ device or Health Console).
 The mission profile is owned by `Layout` and passed to pages through `useOutletContext<{ mission }>()`.
 
 ## Schema (src/lib/types.ts)
@@ -195,6 +200,27 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   "Send report"; `designMock.ts` and `?alert` removed.
 - 2026-11-15: Sync fix: local edits/deletes are versioned after the reading's previous version, so a
   same-millisecond edit + delete no longer loses the delete (failing `sync.e2e` test, also on `main`).
+- 2026-11-15: Renamed to **Aegis Health Console** (session at the user's request, editing A's and B's files):
+  matte blue glass theme (v0.4 tokens), animated body figure (`FigureArt`) with a `model` slot for a 3D
+  character, live crew panel on Today, chart draw-in and spike ▲/▼ markers; start screen with data-source
+  detection (`dataSource.ts`, `scenarios.ts`, `generateSeed` takes a `SeedScript`, storage
+  `applyDemoReadings`/`dropDemoReadings`/`isDemoReading`); ZOĒ 3D device ported from the team's artifact
+  (`components/zoe/*`, `pages/Zoe.tsx`), whose simulated finger scan (`lib/zoeScan.ts`) saves pulse, SpO2,
+  temperature and glucose as readings that sync. New dependency: three.js.
+- 2026-11-15: Neon matrix redesign (v0.5 tokens, same session): flat colours only, **no gradients**
+  anywhere; `.bg-surface` panels are frameless HUD plates with neon corner brackets; `MatrixRain` behind
+  the app; Today's vitals are floating read-out rows (`VitalRow`, `NeonChart` canvas) instead of tiles;
+  charts flow (sliding stream in demo, flowing dashes + sweep on real data); in demo mode the numbers
+  change every second (`components/live.ts`, display only, nothing saved); start screen split
+  diagonally (ZOĒ vs Console) in a graffiti style. `VitalCard`/`Sparkline` are no longer used on Today.
+- 2026-11-15: 3D anatomy + clear-case ZOĒ + calm background (same session): the team's crew-anatomy kit
+  is in: `public/models/{male,female}.glb` (~10 MB each, Human Reference Atlas v1.5, **CC BY 4.0, keep
+  `public/models/ATTRIBUTION.md`**), viewer in `components/anatomy/` (`AnatomyViewer`, lazy
+  `AnatomyStage`, `organs.ts` with organ→body-system map and status tint). Today's crew panel and Body
+  view show it (organs tinted Watch/Act by system status; Body view has layers and male/female). ZOĒ is
+  ported from the "ZOĒ clear-case sensor model" artifact (see-through case, 19 numbered sensor markers,
+  parts list; the tesseract frame is gone). Background is calm flat blue with a breathing dot field
+  (`CalmDots`, replaces `MatrixRain`).
 
 ## Person B — status
 

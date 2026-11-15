@@ -70,6 +70,8 @@ export function Sparkline({
           </>
         )}
         <polyline
+          key={points}
+          className="chc-draw"
           points={points}
           fill="none"
           stroke={LINE}
@@ -79,15 +81,45 @@ export function Sparkline({
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      {/* HTML dot so it stays round when the SVG stretches. */}
+      {/* Spikes: earlier readings outside the normal band, marked high (▲) or low (▼). */}
+      {band &&
+        data.slice(0, -1).map((v, i) => {
+          if (v >= band[0] && v <= band[1]) return null;
+          const high = v > band[1];
+          return (
+            <span
+              key={`${points}-${i}`}
+              className="chc-pop absolute -translate-x-1/2 text-[9px] leading-none text-watch"
+              style={{
+                left: `${x(i)}%`,
+                top: high ? `calc(${y(v)}% - 11px)` : `calc(${y(v)}% + 3px)`,
+                ['--d' as string]: `${(0.15 + (x(i) / 100) * 0.9).toFixed(2)}s`,
+              }}
+            >
+              {high ? '▲' : '▼'}
+            </span>
+          );
+        })}
+      {/* HTML dot so it stays round when the SVG stretches; it pops in once the line arrives,
+          then a ring keeps pulsing from it to mark the live, latest reading. */}
       <span
-        className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface"
+        key={points}
+        className="chc-pop absolute size-2.5 -translate-x-1/2 -translate-y-1/2"
         style={{
           left: '100%',
           top: `${y(last)}%`,
-          background: tone === 'normal' ? 'var(--color-ink)' : TONE[tone].hex,
+          ['--d' as string]: '1.1s',
         }}
-      />
+      >
+        <span
+          className="absolute inset-0 animate-ping rounded-full opacity-60"
+          style={{ background: tone === 'normal' ? 'var(--color-accent)' : TONE[tone].hex }}
+        />
+        <span
+          className="absolute inset-0 rounded-full ring-2 ring-surface"
+          style={{ background: tone === 'normal' ? 'var(--color-ink)' : TONE[tone].hex }}
+        />
+      </span>
     </div>
   );
 }

@@ -190,18 +190,34 @@ export const IconWind = (p: IconProps) => (
   </Svg>
 );
 
+/** ZOĒ device (a cube). */
+export const IconCube = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
+    <path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" />
+  </Svg>
+);
+
+/** Aegis: a shield with an orbit. */
 export function Logo() {
   return (
     <svg width="30" height="30" viewBox="0 0 36 36" fill="none" aria-hidden="true">
-      <circle cx="18" cy="18" r="6" fill="#5ab9fc" />
+      <path
+        d="M18 3.5l11 4v9.2c0 7.3-4.7 12.6-11 15.8C11.7 29.3 7 24 7 16.7V7.5l11-4z"
+        fill="rgba(107,188,255,0.16)"
+        stroke="#6bbcff"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <circle cx="18" cy="17" r="4.2" fill="#6bbcff" />
       <ellipse
         cx="18"
-        cy="18"
-        rx="16"
-        ry="7"
-        stroke="#5ab9fc"
-        strokeWidth="1.6"
-        transform="rotate(-25 18 18)"
+        cy="17"
+        rx="12.5"
+        ry="4.6"
+        stroke="#6bbcff"
+        strokeWidth="1.4"
+        transform="rotate(-25 18 17)"
       />
     </svg>
   );

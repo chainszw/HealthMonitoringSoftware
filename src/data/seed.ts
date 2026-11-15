@@ -123,10 +123,30 @@ const RECENT_EVENTS: Record<number, Record<string, number>> = {
 const round = (v: number, step: number) => Number((Math.round(v / step) * step).toFixed(2));
 
 /**
- * Generate a realistic mission dataset: one reading per indicator per day,
- * ending today. Deterministic for a given (days, now, seed).
+ * Off-nominal values to script into a dataset: `events` by mission day (1-based), `recent` by
+ * days before today (0 = today). `recent` wins when both name the same day and indicator.
  */
-export function generateSeed(days = 30, now = new Date(), seed = 42): Reading[] {
+export interface SeedScript {
+  events: Record<number, Record<string, number>>;
+  recent: Record<number, Record<string, number>>;
+}
+
+/** The default demo story (see EVENTS and RECENT_EVENTS above). */
+export const DEMO_SCRIPT: SeedScript = { events: EVENTS, recent: RECENT_EVENTS };
+
+export { mulberry32 };
+
+/**
+ * Generate a realistic mission dataset: one reading per indicator per day,
+ * ending today. Deterministic for a given (days, now, seed, script).
+ */
+export function generateSeed(
+  days = 30,
+  now = new Date(),
+  seed = 42,
+  script: SeedScript = DEMO_SCRIPT,
+): Reading[] {
+  const { events, recent } = script;
   const rand = mulberry32(seed);
   const readings: Reading[] = [];
   const start = new Date(now);
@@ -144,9 +164,7 @@ export function generateSeed(days = 30, now = new Date(), seed = 42): Reading[] 
 
       const noisy = s.baseline + s.drift * progress + (rand() * 2 - 1) * s.noise;
       const value =
-        RECENT_EVENTS[days - missionDay]?.[s.indicatorId] ??
-        EVENTS[missionDay]?.[s.indicatorId] ??
-        noisy;
+        recent[days - missionDay]?.[s.indicatorId] ?? events[missionDay]?.[s.indicatorId] ?? noisy;
       readings.push({
         id: `seed-${s.indicatorId}-${missionDay}`,
         indicatorId: s.indicatorId,

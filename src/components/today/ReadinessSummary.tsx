@@ -30,7 +30,7 @@ export function ReadinessSummary({ ready }: { ready: ReadinessView }) {
             <path
               d="M 11 76 A 65 65 0 0 1 141 76"
               fill="none"
-              stroke="#1a2131"
+              stroke="rgba(120,160,230,0.18)"
               strokeWidth="9"
               strokeLinecap="round"
             />
@@ -42,6 +42,8 @@ export function ReadinessSummary({ ready }: { ready: ReadinessView }) {
               strokeLinecap="round"
               pathLength={100}
               strokeDasharray={`${ready.score} 100`}
+              key={ready.score}
+              className="chc-gauge"
             />
           </svg>
           <span className="absolute inset-x-0 bottom-0 flex justify-center font-mono text-[34px] leading-9 font-medium text-ink tabular-nums">

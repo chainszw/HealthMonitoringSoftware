@@ -256,6 +256,35 @@ export function clearReadings(): Reading[] {
   return [];
 }
 
+/**
+ * Demo readings made on this device (the seed and the offline scenarios): ids start with `seed-`
+ * and they have no `updatedAt`. Readings from the server always carry `updatedAt`, even the demo
+ * crew's (which also use `seed-` ids), so they are never mistaken for local demo data.
+ */
+export const isDemoReading = (r: Reading): boolean =>
+  r.id.startsWith('seed-') && r.updatedAt === undefined;
+
+/**
+ * Backend not reachable and nobody signed in: replace the device's readings with a demo dataset
+ * (e.g. `generateScenario()`). Local only, like resetToSeed: pending changes are dropped.
+ */
+export function applyDemoReadings(readings: Reading[]): Reading[] {
+  saveReadings(readings);
+  resetSync();
+  return readings;
+}
+
+/**
+ * Backend reachable and signed in: show real data only. Drops demo readings, keeps readings
+ * logged on this device and changes still waiting to be sent, and pulls the server's copy again.
+ */
+export function dropDemoReadings(): Reading[] {
+  const next = loadReadings().filter((r) => !isDemoReading(r));
+  saveReadings(next);
+  resetSyncCursor();
+  return next;
+}
+
 // --- Sync outbox and cursor ----------------------------------------------------
 
 export type Outbox = Record<string, SyncChange>;
