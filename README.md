@@ -179,11 +179,14 @@ A `Reading` is `{ id, indicatorId, value, timestamp, note?, updatedAt? }`. local
 
 Each person owns separate files, so we can work in parallel without merge conflicts.
 
-| Owner                     | Owns                                                                  |
-| ------------------------- | --------------------------------------------------------------------- |
-| **A: logic & data**       | `src/lib/*`, `src/data/seed.ts`, `src/data/content.ts`, tests         |
-| **B: visual & UX**        | `src/components/*`, `src/pages/*`, `src/index.css`, `public/`         |
-| **C: content & write-up** | `src/data/content.json`, README pitch, Space Apps submission write-up |
+| Owner                                         | Owns                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------- |
+| **A: logic, data & backend** (Madhur Karande) | `src/lib/*`, `src/data/seed.ts`, `src/data/content.ts`, `server/*`, tests |
+| **B: visual & UX** (Arahant Kankal)           | `src/components/*`, `src/pages/*`, `src/index.css`, `public/`             |
+| **C: content & write-up** (Mrigaj Waikar)     | `src/data/content.json`, README pitch, Space Apps submission write-up     |
+
+The GitHub repository is owned by Person B (Arahant Kankal). That is only how it was created; it
+doesn't change who owns which files.
 
 Changes to `src/lib/types.ts` affect all three owners: agree on them first, then update
 `content.json`, README and CLAUDE.md in the same commit.
