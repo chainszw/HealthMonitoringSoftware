@@ -17,8 +17,6 @@ export const SESSION_KEY = 'chc:v1:session';
 export const ROUTINE_KEY = 'chc:v1:routine';
 /** Optional mission start (ISO); without it, mission day counts from the first reading. */
 export const MISSION_START_KEY = 'chc:v1:missionStart';
-/** Device-only dev settings (e.g. { backdrop: 'aurora' }); never synced. */
-export const DEV_KEY = 'chc:v1:dev';
 const DEFAULT_MISSION: MissionProfileId = 'iss';
 
 // Fallback when localStorage is unavailable (private mode, blocked, tests).
@@ -414,17 +412,4 @@ export function loadMissionStart(): string | undefined {
 export function saveMissionStart(iso: string | undefined): void {
   if (iso) write(MISSION_START_KEY, iso);
   else remove(MISSION_START_KEY);
-}
-
-/** Dev settings for this device, as plain strings. Missing or corrupt data reads as {}. */
-export function loadDevSettings(): Record<string, string> {
-  const parsed = readJson(DEV_KEY);
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-  return Object.fromEntries(
-    Object.entries(parsed).filter((e): e is [string, string] => typeof e[1] === 'string'),
-  );
-}
-
-export function saveDevSetting(name: string, value: string): void {
-  write(DEV_KEY, JSON.stringify({ ...loadDevSettings(), [name]: value }));
 }

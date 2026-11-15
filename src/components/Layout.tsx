@@ -3,14 +3,11 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 import { content } from '../data/content';
 import { getScenario } from '../data/scenarios';
 import { formatDelay } from '../lib/format';
-import { loadDevSettings, saveDevSetting } from '../lib/storage';
 import { requestSync } from '../lib/sync';
 import type { MissionProfileId } from '../lib/types';
 import { useMission, useReadings, useSync } from '../lib/useReadings';
 import { AccountMenu } from './AccountMenu';
-import { Backdrop } from './backdrop/Backdrop';
-import { initialBackdrop, type BackdropVariant } from './backdrop/variants';
-import { DevPanel } from './DevPanel';
+import { SpaceBackdrop } from './backdrop/SpaceBackdrop';
 import {
   IconBody,
   IconCalendarCheck,
@@ -60,17 +57,6 @@ export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
   const start = useStart();
-  const [backdrop, setBackdrop] = useState<BackdropVariant>(() =>
-    initialBackdrop(window.location.search, loadDevSettings().backdrop),
-  );
-  // Dev settings: in `npm run dev`, or anywhere with `?dev` in the URL.
-  const [devPanel] = useState(
-    () => import.meta.env.DEV || new URLSearchParams(window.location.search).has('dev'),
-  );
-  const changeBackdrop = (v: BackdropVariant) => {
-    setBackdrop(v);
-    saveDevSetting('backdrop', v);
-  };
   const dataChip =
     start.mode === 'live'
       ? { dot: 'bg-ok', text: 'Live data' }
@@ -108,8 +94,7 @@ export function Layout() {
 
   return (
     <div className="chc-fit relative isolate flex min-h-screen flex-col text-base text-ink">
-      <Backdrop variant={backdrop} mission={mission} />
-      {devPanel && <DevPanel backdrop={backdrop} onBackdropChange={changeBackdrop} />}
+      <SpaceBackdrop mission={mission} />
       <header className="relative z-30 bg-bg/60 backdrop-blur-sm flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-line px-6 py-3.5">
         <div className="flex flex-wrap items-center gap-3">
           <NavLink to="/" className="flex items-center gap-3 text-ink no-underline">

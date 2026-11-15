@@ -104,7 +104,7 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - localStorage keys: `chc:v1:readings`, `chc:v1:mission`, `chc:v1:outbox` (changes not yet sent to the
   server, latest per id), `chc:v1:sync` ({ cursor, lastSyncedAt }), `chc:v1:session` ({ token, crew }:
   who is signed in for sync), `chc:v1:routine` (routine completions per local day),
-  `chc:v1:missionStart` (optional mission start, ISO), `chc:v1:dev` (device-only dev settings, e.g. backdrop). Bump `v1` if the Reading shape changes incompatibly. Old ids
+  `chc:v1:missionStart` (optional mission start, ISO). Bump `v1` if the Reading shape changes incompatibly. Old ids
   `glucose`/`temperature` are migrated on load.
 - API wire types (`src/lib/syncProtocol.ts`, shared by app and server): `SyncChange` = Reading +
   `updatedAt` + `deletedAt?`; `POST /sync { since, changes, mission? }` → `{ changes, cursor, rejected }`;
@@ -228,6 +228,9 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   panel from `b/backdrops` (`components/backdrop/`, `DevPanel`, `?bg=sky|grid|aurora`, `?dev`, key
   `chc:v1:dev`, `loadDevSettings`/`saveDevSetting` in A's `storage.ts`) replace `CalmDots` in the shell;
   Today's vital rows are status-bordered cards with the live charts on a grid panel. No features removed.
+- 2026-11-15: B: dev panel and the grid/aurora backdrops removed; the mission-space sky
+  (`components/backdrop/SpaceBackdrop.tsx`) is the only background. `chc:v1:dev` and the dev-settings
+  helpers in `storage.ts` are gone again.
 - 2026-11-15: B: Today drops the crew 3D panel (anatomy stays on Body view); the six vitals are a 3×2 grid
   of cards with their live charts (`VitalRow`). `CrewCharacter` is unused for now, not deleted.
 - 2026-11-15: Placeholders connected (session at the user's request, editing A's, B's and C's files):
