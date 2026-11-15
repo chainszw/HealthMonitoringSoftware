@@ -6,16 +6,16 @@ const CHECK_ORDER: StatusLevel[] = ['green', 'amber', 'red'];
 function inRange(value: number, range: Range): boolean {
   return (
     (range.min === undefined || value >= range.min) &&
-    (range.max === undefined || value <= range.max)
+    (range.max === undefined || value < range.max)
   );
 }
 
 /**
- * Pure status lookup. Bands are inclusive and may share edges
- * (green 50–90, amber 90–110): checked green → amber → red, first match wins,
- * so a shared edge resolves to the less severe level.
+ * Pure status lookup. Bands are half-open, as in content.json: min inclusive, max exclusive
+ * (green 60–101 and amber 101–131 means 101 is amber). Bands are checked green → amber → red
+ * and the first match wins, so overlapping bands resolve to the less severe level.
  * A value outside every band is treated as red (conservative).
- * Action text always comes from the indicator (content.json).
+ * Action text and band label always come from the indicator (content.json).
  */
 export function getStatus(
   indicator: Indicator,
@@ -25,9 +25,11 @@ export function getStatus(
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return { level: 'unknown', action: unknownAction };
   }
-  const level =
-    CHECK_ORDER.find((l) => indicator.ranges[l].some((r) => inRange(value, r))) ?? 'red';
-  return { level, action: indicator.actions[level] };
+  for (const level of CHECK_ORDER) {
+    const band = indicator.ranges[level].find((r) => inRange(value, r));
+    if (band) return { level, action: indicator.actions[level], label: band.label };
+  }
+  return { level: 'red', action: indicator.actions.red };
 }
 
 /** Most severe level in a list (red > amber > green > unknown). */

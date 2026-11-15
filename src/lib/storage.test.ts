@@ -45,6 +45,21 @@ describe('storage', () => {
     expect(after.at(-1)).toMatchObject({ indicatorId: 'heart_rate', value: 70, note: 'test' });
   });
 
+  it('migrates renamed indicator ids on load', () => {
+    const ts = '2026-11-14T07:00:00.000Z';
+    const old = [
+      { id: 'a', indicatorId: 'glucose', value: 90, timestamp: ts },
+      { id: 'b', indicatorId: 'temperature', value: 36.8, timestamp: ts },
+      { id: 'c', indicatorId: 'mood', value: 4, timestamp: ts },
+    ];
+    localStorage.setItem(READINGS_KEY, JSON.stringify(old));
+    expect(loadReadings().map((r) => r.indicatorId)).toEqual([
+      'blood_glucose',
+      'body_temp',
+      'mood',
+    ]);
+  });
+
   it('clears and resets to seed', () => {
     expect(clearReadings()).toEqual([]);
     expect(loadReadings()).toEqual([]);

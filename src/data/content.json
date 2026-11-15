@@ -2,8 +2,85 @@
   "meta": {
     "version": "1.0",
     "lastUpdated": "2026-11-14",
-    "disclaimer": "Research prototype for flight-surgeon support, not diagnosis or approved flight medical guidance. All thresholds, measurement procedures and schedules require mission medical approval. Bands use inclusive min and exclusive max; null is unbounded. Accept whole numbers for heart rate, blood pressure, glucose, SpO2 and mood; allow decimals for temperature and sleep. Reject impossible values, missing values and device errors before classification, including SpO2 outside 0-100, sleep outside 0-24 and mood outside integers 1-5. Glucose bands apply only to fasting readings. Use the worse blood-pressure status. Serious symptoms override every green or amber result. For urgent problems, alert a crewmate and use the onboard emergency protocol while contacting the flight surgeon; do not wait for an Earth reply. These indicators do not measure radiation dose or exclude radiation injury."
+    "disclaimer": "Research prototype for flight-surgeon support, not diagnosis or approved flight medical guidance. All thresholds, measurement procedures and schedules require mission medical approval. Bands use inclusive min and exclusive max; null is unbounded. Accept whole numbers for heart rate, blood pressure, glucose, SpO2 and mood; allow decimals for temperature and sleep. Reject impossible values, missing values and device errors before classification, including SpO2 outside 0-100, sleep outside 0-24 and mood outside integers 1-5. Glucose bands apply only to fasting readings. Use the worse blood-pressure status. Serious symptoms override every green or amber result. For urgent problems, alert a crewmate and use the onboard emergency protocol while contacting the flight surgeon; do not wait for an Earth reply. These indicators do not measure radiation dose or exclude radiation injury.",
+    "unknownStatusAction": "No valid reading yet. Log a measurement to see a status."
   },
+  "bodySystems": [
+    {
+      "id": "heart",
+      "name": "Heart and circulation",
+      "spaceflightEffects": "PLACEHOLDER: Fluids shift toward the head; the heart can lose mass and blood volume drops.",
+      "hazards": ["altered_gravity", "isolation_confinement"]
+    },
+    {
+      "id": "respiratory",
+      "name": "Lungs and breathing",
+      "spaceflightEffects": "PLACEHOLDER: Cabin oxygen, pressure and air quality affect breathing and blood oxygen.",
+      "hazards": ["hostile_environment"]
+    },
+    {
+      "id": "bone",
+      "name": "Bones",
+      "spaceflightEffects": "PLACEHOLDER: Weight-bearing bones can lose roughly 1-1.5% of mass per month without countermeasures.",
+      "hazards": ["altered_gravity"]
+    },
+    {
+      "id": "muscle",
+      "name": "Muscles",
+      "spaceflightEffects": "PLACEHOLDER: Postural muscles weaken without daily resistance exercise.",
+      "hazards": ["altered_gravity"]
+    },
+    {
+      "id": "immune",
+      "name": "Immune system",
+      "spaceflightEffects": "PLACEHOLDER: Immune function can change; latent viruses may reactivate.",
+      "hazards": ["radiation", "hostile_environment"]
+    },
+    {
+      "id": "eyes",
+      "name": "Eyes and vision",
+      "spaceflightEffects": "PLACEHOLDER: Spaceflight-associated neuro-ocular syndrome (SANS) can change vision.",
+      "hazards": ["altered_gravity"]
+    },
+    {
+      "id": "mind",
+      "name": "Mind and behavior",
+      "spaceflightEffects": "PLACEHOLDER: Isolation, confinement, workload and sleep loss affect mood, cognition and teamwork.",
+      "hazards": ["isolation_confinement", "distance_from_earth"]
+    },
+    {
+      "id": "sleep",
+      "name": "Sleep and circadian rhythm",
+      "spaceflightEffects": "PLACEHOLDER: About 16 sunrises a day in low Earth orbit can disrupt circadian rhythm.",
+      "hazards": ["isolation_confinement", "hostile_environment"]
+    },
+    {
+      "id": "metabolic",
+      "name": "Metabolism and nutrition",
+      "spaceflightEffects": "PLACEHOLDER: Insulin sensitivity and appetite can change in flight.",
+      "hazards": ["hostile_environment"]
+    }
+  ],
+  "missionProfiles": [
+    {
+      "id": "iss",
+      "name": "ISS (low Earth orbit)",
+      "description": "PLACEHOLDER: Near-continuous contact with ground and flight surgeons.",
+      "commsDelaySeconds": { "min": 0, "max": 1 }
+    },
+    {
+      "id": "lunar",
+      "name": "Lunar (Artemis)",
+      "description": "PLACEHOLDER: About 1.3 s one-way delay; evacuation to Earth takes days.",
+      "commsDelaySeconds": { "min": 1.3, "max": 1.3 }
+    },
+    {
+      "id": "mars",
+      "name": "Mars transit / surface",
+      "description": "PLACEHOLDER: 3-22 min one-way delay; crew must act autonomously.",
+      "commsDelaySeconds": { "min": 180, "max": 1320 }
+    }
+  ],
   "hazards": [
     {
       "id": "radiation",
@@ -93,11 +170,7 @@
         "In microgravity, use the same restraint and arm position each time; do not try to plant your feet.",
         "Take two readings one minute apart. Save both systolic and diastolic values from each reading."
       ],
-      "hazards": [
-        "altered_gravity",
-        "hostile_environment",
-        "distance_from_earth"
-      ],
+      "hazards": ["altered_gravity", "hostile_environment", "distance_from_earth"],
       "bands": [
         { "status": "red", "min": null, "max": 91, "label": "Low pressure; urgent review" },
         { "status": "amber", "min": 91, "max": 101, "label": "Below usual reference range" },
@@ -138,11 +211,7 @@
         "Read the lower number, usually marked DIA.",
         "Save both readings from the paired checks and note any symptoms."
       ],
-      "hazards": [
-        "altered_gravity",
-        "hostile_environment",
-        "distance_from_earth"
-      ],
+      "hazards": ["altered_gravity", "hostile_environment", "distance_from_earth"],
       "bands": [
         { "status": "amber", "min": null, "max": 60, "label": "Low; assess symptoms and baseline" },
         { "status": "green", "min": 60, "max": 80, "label": "Usual adult reference range" },
@@ -184,11 +253,7 @@
         "Keep the blood drop contained at the fingertip. Apply it to the strip and dispose of sharps immediately.",
         "Record the result, fasting status, symptoms and relevant medicines."
       ],
-      "hazards": [
-        "altered_gravity",
-        "isolation_confinement",
-        "distance_from_earth"
-      ],
+      "hazards": ["altered_gravity", "isolation_confinement", "distance_from_earth"],
       "bands": [
         { "status": "red", "min": null, "max": 55, "label": "Severely low glucose" },
         { "status": "amber", "min": 55, "max": 70, "label": "Low; treat promptly" },
@@ -232,11 +297,7 @@
         "Record the body site, time, symptoms and recent exercise.",
         "Do not treat a skin-temperature sensor as a core-temperature measurement."
       ],
-      "hazards": [
-        "altered_gravity",
-        "hostile_environment",
-        "distance_from_earth"
-      ],
+      "hazards": ["altered_gravity", "hostile_environment", "distance_from_earth"],
       "bands": [
         { "status": "red", "min": null, "max": 35, "label": "Dangerously low temperature" },
         { "status": "amber", "min": 35, "max": 36, "label": "Low; check method and symptoms" },
@@ -278,10 +339,7 @@
         "Wait for a stable reading and a good signal indicator.",
         "Record symptoms and cabin conditions. If unexpected, recheck another finger without delaying urgent care."
       ],
-      "hazards": [
-        "hostile_environment",
-        "distance_from_earth"
-      ],
+      "hazards": ["hostile_environment", "distance_from_earth"],
       "bands": [
         { "status": "red", "min": null, "max": 92, "label": "Low oxygen; urgent assessment" },
         { "status": "amber", "min": 92, "max": 96, "label": "Below selected reference range" },
@@ -320,16 +378,17 @@
         "Use the approved wearable as a supporting estimate, not a perfect measurement.",
         "Record sleep quality, unusual sleepiness and any sleep medicine."
       ],
-      "hazards": [
-        "isolation_confinement",
-        "hostile_environment",
-        "distance_from_earth"
-      ],
+      "hazards": ["isolation_confinement", "hostile_environment", "distance_from_earth"],
       "bands": [
         { "status": "red", "min": null, "max": 6, "label": "Short sleep; check fitness for duty" },
         { "status": "amber", "min": 6, "max": 7, "label": "Below adult sleep recommendation" },
         { "status": "green", "min": 7, "max": 9, "label": "Within selected sleep target" },
-        { "status": "amber", "min": 9, "max": null, "label": "Long sleep; check recovery and symptoms" }
+        {
+          "status": "amber",
+          "min": 9,
+          "max": null,
+          "label": "Long sleep; check recovery and symptoms"
+        }
       ],
       "actions": {
         "green": [
@@ -365,11 +424,7 @@
         "Add a private note about sleep, stress or difficulty doing your usual tasks.",
         "Report feeling unsafe directly; do not rely on this score to communicate it."
       ],
-      "hazards": [
-        "isolation_confinement",
-        "distance_from_earth",
-        "hostile_environment"
-      ],
+      "hazards": ["isolation_confinement", "distance_from_earth", "hostile_environment"],
       "bands": [
         { "status": "red", "min": null, "max": 2, "label": "Very low; reach out now" },
         { "status": "amber", "min": 2, "max": 3, "label": "Low; arrange a check-in" },

@@ -31,7 +31,7 @@ const SPECS: SeedSpec[] = [
   {
     indicatorId: 'heart_rate',
     hour: 7,
-    baseline: 63,
+    baseline: 67,
     noise: 4,
     drift: 5,
     step: 1,
@@ -41,9 +41,9 @@ const SPECS: SeedSpec[] = [
   {
     indicatorId: 'bp_systolic',
     hour: 7,
-    baseline: 114,
-    noise: 5,
-    drift: 3,
+    baseline: 110,
+    noise: 4,
+    drift: 2,
     step: 1,
     min: 60,
     max: 220,
@@ -58,9 +58,18 @@ const SPECS: SeedSpec[] = [
     min: 40,
     max: 140,
   },
-  { indicatorId: 'glucose', hour: 7, baseline: 86, noise: 6, drift: 0, step: 1, min: 40, max: 300 },
   {
-    indicatorId: 'temperature',
+    indicatorId: 'blood_glucose',
+    hour: 7,
+    baseline: 86,
+    noise: 6,
+    drift: 0,
+    step: 1,
+    min: 40,
+    max: 300,
+  },
+  {
+    indicatorId: 'body_temp',
     hour: 7,
     baseline: 36.7,
     noise: 0.25,
@@ -94,10 +103,10 @@ const SPECS: SeedSpec[] = [
 
 /** Scripted off-nominal events (mission day is 1-based) for a compelling demo. */
 const EVENTS: Record<number, Record<string, number>> = {
-  12: { sleep_hours: 6.0, mood: 3 }, // amber: poor night, low mood
+  12: { sleep_hours: 6.0, mood: 2 }, // amber: poor night, low mood
   13: { sleep_hours: 5.25, mood: 2 }, // red sleep, amber mood
-  21: { heart_rate: 116, temperature: 38.4 }, // red: fever / tachycardia
-  22: { heart_rate: 96, temperature: 37.8 }, // amber: recovering
+  21: { heart_rate: 134, body_temp: 38.6 }, // red pulse, amber fever
+  22: { heart_rate: 104, body_temp: 38.1 }, // amber: recovering
   25: { spo2: 93 }, // amber: SpO2 dip
 };
 
