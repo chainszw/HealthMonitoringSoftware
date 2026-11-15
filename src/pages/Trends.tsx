@@ -1,106 +1,204 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useOutletContext } from 'react-router';
 import { IconCheckCircle, IconChevronRight, IconPlus } from '../components/icons';
-import { btn, ROW, TONE, type Tone } from '../components/tone';
+import { btn, ROW, TONE, toneOf, type Tone } from '../components/tone';
 import { PageHeader, Panel, StatusIcon, StatusPill } from '../components/ui';
-import type { MissionProfileId } from '../lib/types';
-import { MISSIONS, TREND_DATA, TREND_KEYS, TREND_NOTES, TRENDS, type TrendKey } from './designMock';
+import { useNow } from '../components/useNow';
+import { entryLabel, entryUnit, primaryIndicator, type EntryKey } from '../components/vitals';
+import { content, getIndicator } from '../data/content';
+import { formatDelay, formatValue, greenBand } from '../lib/format';
+import {
+  chartDomain,
+  lastDays,
+  seriesFor,
+  summarizeSeries,
+  type SeriesSummary,
+} from '../lib/trends';
+import type { MissionProfileId, Reading } from '../lib/types';
+import { useMissionDay, useReadings } from '../lib/useReadings';
 
-// Owner B: "04 · Trends" from the design canvas. Lazy-loaded route.
-// LAYOUT TEST: 90 days of deterministic mock data; not connected to storage.
+// Owner B: "04 · Trends" from the design canvas. Lazy-loaded route. One point per day (the
+// latest reading), coloured by getStatus(); bands are content.json's green ranges.
 
-type Point = { i: number; day: number; tone: Tone; value: string; x: number; y: number };
+type TrendKey = EntryKey;
+const TREND_KEYS: TrendKey[] = [
+  'bp',
+  'heart_rate',
+  'sleep_hours',
+  'spo2',
+  'body_temp',
+  'blood_glucose',
+];
 
-function geometry(k: TrendKey, n: number) {
-  const c = TRENDS[k];
-  const start = 90 - n;
-  const days = TREND_DATA.days.slice(start);
-  const series = c.series.map((s) => s.slice(start));
+type Point = { i: number; tone: Tone; value: string; x: number; y: number; id: string };
+
+const DIRECTION: Record<SeriesSummary['direction'], string> = {
+  rising: 'Rising lately',
+  falling: 'Falling lately',
+  steady: 'Steady',
+  insufficient: 'Not enough readings to call a direction',
+};
+
+function geometry(k: TrendKey, n: number, readings: Reading[], now: Date) {
+  const ind = primaryIndicator(k)!;
+  const dia = k === 'bp' ? getIndicator('bp_diastolic') : undefined;
+  const slots = seriesFor(k, n, readings, now);
+  const ranges: [number, number][] = [greenBand(ind), ...(dia ? [greenBand(dia)] : [])];
+  const values = slots.flatMap((p) =>
+    p ? [p.value, ...(p.value2 !== undefined ? [p.value2] : [])] : [],
+  );
+  const flat = ranges.flat();
+  const [min, max] = chartDomain(values, [Math.min(...flat), Math.max(...flat)]);
+  const series = [
+    slots.map((p) => p?.value ?? null),
+    ...(dia ? [slots.map((p) => p?.value2 ?? null)] : []),
+  ];
   const xPct = (i: number) => ((i + 0.5) / n) * 100;
-  const yPct = (v: number) => ((c.max - v) / (c.max - c.min)) * 100;
+  const yPct = (v: number) => ((max - v) / (max - min)) * 100;
   const pts = series.map((ser) =>
     ser
       .map((v, i) => (v == null ? null : `${(xPct(i) * 10).toFixed(1)},${yPct(v).toFixed(2)}`))
       .filter(Boolean)
       .join(' '),
   );
-  const bandPath = c.ranges
+  const bandPath = ranges
     .map(([lo, hi]) => `M0 ${yPct(hi).toFixed(2)}H1000V${yPct(lo).toFixed(2)}H0Z`)
     .join(' ');
-  const edgePath = c.ranges
+  const edgePath = ranges
     .map(([lo, hi]) => `M0 ${yPct(hi).toFixed(2)}H1000M0 ${yPct(lo).toFixed(2)}H1000`)
     .join(' ');
   const points: Point[] = [];
-  series[0].forEach((v, i) => {
-    if (v == null) return;
-    const args = series.map((s) => s[i] as number);
+  slots.forEach((p, i) => {
+    if (!p) return;
     points.push({
       i,
-      day: days[i],
-      tone: c.status(...args),
-      value: c.fmt(...args),
+      id: p.id,
+      tone: toneOf(p.level) ?? 'normal',
+      value:
+        formatValue(ind, p.value) +
+        (p.value2 !== undefined ? `/${formatValue(dia, p.value2)}` : ''),
       x: xPct(i),
-      y: yPct(v),
+      y: yPct(p.value),
     });
   });
-  const inRange = points.filter((p) => p.tone === 'normal').length;
-  const last = points[points.length - 1];
-  const vals = points.map((p) => series[0][p.i] as number);
-  const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
-  const a1 = avg(vals.slice(-5));
-  const a0 = avg(vals.slice(-10, -5));
-  const tol = (c.max - c.min) * 0.04;
-  const dir =
-    vals.length < 6
-      ? 'Not enough readings to call a direction'
-      : a1 - a0 > tol
-        ? 'Rising lately'
-        : a0 - a1 > tol
-          ? 'Falling lately'
-          : 'Steady';
+  const summary = summarizeSeries(slots, (max - min) * 0.04);
+  const yLabels = [...new Set(ranges.flat())].map((v) => ({
+    v,
+    text: formatValue(ind, v),
+  }));
   return {
-    c,
-    days,
+    name: entryLabel(k),
+    short: entryLabel(k).toLowerCase(),
+    unit: entryUnit(k),
+    slots,
     pts,
     bandPath,
     edgePath,
     points,
-    inRange,
-    last,
-    latestToday: series[0][n - 1] != null,
-    dir,
+    summary,
+    inRange: summary.inRange,
+    last: points[points.length - 1],
+    lastSlot: summary.latest,
+    latestToday: slots[n - 1] != null,
+    dir: DIRECTION[summary.direction],
     xPct,
     yPct,
+    yLabels,
   };
+}
+
+type Geometry = ReturnType<typeof geometry>;
+
+const NOTE_RANK = { act: 0, watch: 1, normal: 2 } as const;
+
+/** "What changed": off-range indicators first, then moving ones, then steady ones. */
+function whatChanged(
+  all: Record<TrendKey, Geometry>,
+  dayLabel: (i: number) => string,
+): { tone: Tone; k: TrendKey; title: string; text: string; rank: number }[] {
+  return TREND_KEYS.flatMap((k) => {
+    const g = all[k];
+    const s = g.summary;
+    if (!s.total) return [];
+    if (s.off.length) {
+      const lastOff = s.off[s.off.length - 1];
+      const i = g.slots.findIndex((p) => p?.id === lastOff.id);
+      const tone = toneOf(s.worst) ?? 'watch';
+      return [
+        {
+          tone,
+          k,
+          title: `${g.name}: ${s.off.length} of ${s.total} outside your range`,
+          text:
+            lastOff.id === s.latest?.id
+              ? `Your latest reading is outside your range. ${g.dir}.`
+              : `Last on ${dayLabel(i)}. Back in range since.`,
+          rank: NOTE_RANK[tone],
+        },
+      ];
+    }
+    const moving = s.direction === 'rising' || s.direction === 'falling';
+    return [
+      {
+        tone: 'normal' as Tone,
+        k,
+        title: moving ? `${g.name} ${s.direction} lately` : `${g.name} steady`,
+        text: `All ${s.total} readings in your range.`,
+        rank: moving ? 2 : 3,
+      },
+    ];
+  })
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, 4);
 }
 
 export function Trends() {
   const { mission } = useOutletContext<{ mission: MissionProfileId }>();
+  const { readings, update } = useReadings();
+  const now = useNow(60_000);
+  const missionDay = useMissionDay();
   const [sel, setSel] = useState<TrendKey>('bp');
   const [n, setN] = useState(30);
   const [hover, setHover] = useState<number | null>(null);
   const [note, setNote] = useState('');
-  const [attached, setAttached] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
 
-  const g = geometry(sel, n);
+  const all = useMemo(
+    () =>
+      Object.fromEntries(TREND_KEYS.map((k) => [k, geometry(k, n, readings, now)])) as Record<
+        TrendKey,
+        Geometry
+      >,
+    [n, readings, now],
+  );
+  const days = useMemo(() => lastDays(n, now), [n, now]);
+  /** "Day 142" when the mission day is known, else the date. */
+  const dayLabel = (i: number) => {
+    const md = missionDay - (n - 1 - i);
+    return missionDay > 0 && md >= 1
+      ? `Day ${md}`
+      : days[i].toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
+  const g = all[sel];
   const lastTone: Tone = g.last?.tone ?? 'normal';
-  const firstDay = g.days[0];
-  const midDay = g.days[Math.floor(n / 2)];
   const hp = hover == null ? null : g.points.find((p) => p.i === hover);
-  const gl = geometry('glu', n);
-  const notes = TREND_NOTES[n].map(([tone, k, title, text]) => ({
-    tone,
-    k,
-    title,
-    text: text || `${gl.inRange} of ${gl.points.length} readings in range.`,
-  }));
-  const yLabels = g.c.ranges.flatMap(([lo, hi]) => [hi, lo]);
+  const notes = whatChanged(all, dayLabel);
   const dots = g.points.filter((p) => p.tone !== 'normal' || n <= 30);
+  const delay = formatDelay(
+    content.missionProfiles.find((m) => m.id === mission)?.commsDelaySeconds.max ?? 0,
+  );
+  const target = g.lastSlot;
+  const targetNote = target ? (readings.find((r) => r.id === target.id)?.note ?? '') : '';
+  const attached = !!note.trim() && note.trim() === targetNote;
+  const attach = () => {
+    if (!target || !note.trim()) return;
+    update(target.id, { note: note.trim() });
+    if (target.id2) update(target.id2, { note: note.trim() });
+  };
 
   return (
     <div className="flex flex-col gap-3.5 xl:min-h-0 xl:flex-1">
-      <PageHeader title="Trends" meta={[{ label: 'Days', value: `${firstDay}–142` }]}>
+      <PageHeader title="Trends" meta={[{ label: 'Range', value: `${dayLabel(0)} – today` }]}>
         <div className="flex flex-wrap items-center gap-2.5">
           <div
             role="group"
@@ -158,6 +256,11 @@ export function Trends() {
                   </span>
                 </button>
               ))}
+              {notes.length === 0 && (
+                <span className="px-3 py-2.5 text-[15px] text-muted">
+                  No readings in this range yet.
+                </span>
+              )}
             </div>
           </Panel>
           <section
@@ -166,7 +269,7 @@ export function Trends() {
           >
             <button
               type="button"
-              aria-expanded={noteOpen || attached}
+              aria-expanded={noteOpen}
               aria-controls="note-body"
               onClick={() => setNoteOpen((o) => !o)}
               className="flex w-full cursor-pointer items-center justify-between gap-2 text-left"
@@ -186,23 +289,22 @@ export function Trends() {
               <div id="note-body" className="flex flex-col gap-2.5">
                 <label htmlFor="note" className="text-sm leading-5 text-text">
                   Anything that explains these lines, like a hard workout, a late night or a new
-                  medicine.
+                  medicine. It is saved on your latest {g.short} reading
+                  {target ? ` (${dayLabel(g.slots.findIndex((p) => p?.id === target.id))})` : ''}.
                 </label>
                 <textarea
                   id="note"
                   rows={2}
                   value={note}
-                  onChange={(e) => {
-                    setNote(e.target.value);
-                    setAttached(false);
-                  }}
-                  placeholder="e.g. Coffee before the BP check on day 142."
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="e.g. Coffee just before the blood pressure check."
                   className="resize-y rounded-xl border border-line-2 bg-sunk p-3 text-base text-ink outline-none placeholder:text-faint focus:border-accent"
                 />
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => setAttached(true)}
+                    onClick={attach}
+                    disabled={!target || !note.trim()}
                     className={btn(
                       'secondary',
                       `cursor-pointer px-4 ${attached ? '!border-ok/45' : ''}`,
@@ -213,10 +315,10 @@ export function Trends() {
                         <IconCheckCircle size={18} strokeWidth={2.4} />
                       </span>
                     )}
-                    {attached ? 'Attached to your next report' : 'Attach to next report'}
+                    {attached ? 'Saved with the reading' : 'Save with the reading'}
                   </button>
                   <span className="text-[13px] text-muted">
-                    Reaches Earth {MISSIONS[mission].delay} after sending
+                    Reaches Earth {delay} after the next sync
                   </span>
                 </div>
               </div>
@@ -233,15 +335,15 @@ export function Trends() {
               <div className="flex min-w-0 flex-col gap-0.5">
                 <div className="flex items-baseline gap-3">
                   <h2 className="m-0 text-[22px] leading-7 font-medium tracking-[-0.02em]">
-                    {g.c.name}
+                    {g.name}
                   </h2>
                   <span className="font-mono text-[13px] text-muted">
-                    {n} days · {g.c.unit}
+                    {n} days · {g.unit}
                   </span>
                 </div>
                 <span className="text-sm text-text">
                   {g.dir}. {g.inRange} of {g.points.length} readings in your range
-                  {g.latestToday ? '.' : `, latest on day ${g.last?.day ?? ''}.`}
+                  {g.latestToday || !g.last ? '.' : `, latest on ${dayLabel(g.last.i)}.`}
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -249,7 +351,7 @@ export function Trends() {
                   <span className="font-mono text-[34px] leading-none font-medium tracking-[-0.04em] tabular-nums">
                     {g.last?.value ?? '--'}
                   </span>
-                  <span className="font-mono text-base text-text">{g.c.unit}</span>
+                  <span className="font-mono text-base text-text">{g.unit}</span>
                 </span>
                 <StatusPill tone={lastTone} />
               </div>
@@ -259,19 +361,19 @@ export function Trends() {
               <>
                 <div className="flex min-h-[300px] flex-1 gap-2 xl:min-h-[140px]">
                   <div className="relative w-10 shrink-0">
-                    {yLabels.map((v) => (
+                    {g.yLabels.map(({ v, text }) => (
                       <span
                         key={v}
                         className="absolute right-0 -translate-y-1/2 font-mono text-[12px] text-muted"
                         style={{ top: `${g.yPct(v).toFixed(2)}%` }}
                       >
-                        {v}
+                        {text}
                       </span>
                     ))}
                   </div>
                   <div
                     role="img"
-                    aria-label={`${g.c.name} over ${n} days: ${g.inRange} of ${g.points.length} readings in range.`}
+                    aria-label={`${g.name} over ${n} days: ${g.inRange} of ${g.points.length} readings in range.`}
                     onMouseLeave={() => setHover(null)}
                     className="relative flex-1 rounded-lg bg-sunk"
                   >
@@ -330,7 +432,7 @@ export function Trends() {
                         </span>
                       );
                     })}
-                    {g.days.map((_, i) => (
+                    {days.map((_, i) => (
                       <span
                         key={i}
                         onMouseEnter={() => setHover(i)}
@@ -352,12 +454,12 @@ export function Trends() {
                         }}
                       >
                         <span className="font-mono text-[13px] text-muted">
-                          Day {hp.day}
-                          {hp.day === 142 ? ', today' : ''}
+                          {dayLabel(hp.i)}
+                          {hp.i === n - 1 ? ', today' : ''}
                         </span>
                         <span className="flex items-baseline gap-1.5">
                           <span className="text-xl font-medium tabular-nums">{hp.value}</span>
-                          <span className="font-mono text-[13px] text-text">{g.c.unit}</span>
+                          <span className="font-mono text-[13px] text-text">{g.unit}</span>
                         </span>
                         <span>
                           <StatusPill tone={hp.tone} />
@@ -367,9 +469,9 @@ export function Trends() {
                   </div>
                 </div>
                 <div className="flex justify-between pl-12 font-mono text-[13px] text-muted">
-                  <span>Day {firstDay}</span>
-                  <span>Day {midDay}</span>
-                  <span>Today, day 142</span>
+                  <span>{dayLabel(0)}</span>
+                  <span>{dayLabel(Math.floor(n / 2))}</span>
+                  <span>Today{missionDay > 0 ? `, day ${missionDay}` : ''}</span>
                 </div>
               </>
             ) : (
@@ -379,7 +481,7 @@ export function Trends() {
                   {g.points.length} logged in this range so far.
                 </span>
                 <Link to="/log" className={btn('secondary', 'mt-2 px-4 no-underline')}>
-                  Log {g.c.short}
+                  Log {g.short}
                 </Link>
               </div>
             )}
@@ -423,8 +525,7 @@ export function Trends() {
             {TREND_KEYS.map((k) => (
               <SmallMultiple
                 key={k}
-                k={k}
-                n={n}
+                g={all[k]}
                 on={k === sel}
                 onPick={() => {
                   setSel(k);
@@ -439,18 +540,7 @@ export function Trends() {
   );
 }
 
-function SmallMultiple({
-  k,
-  n,
-  on,
-  onPick,
-}: {
-  k: TrendKey;
-  n: number;
-  on: boolean;
-  onPick: () => void;
-}) {
-  const g = geometry(k, n);
+function SmallMultiple({ g, on, onPick }: { g: Geometry; on: boolean; onPick: () => void }) {
   const tone: Tone = g.last?.tone ?? 'normal';
   const inRange =
     g.points.length < 3
@@ -461,16 +551,16 @@ function SmallMultiple({
       type="button"
       aria-pressed={on}
       onClick={onPick}
-      aria-label={`${g.c.name}, latest ${g.last?.value ?? '--'} ${g.c.unit}, ${TONE[tone].label}. ${inRange}`}
+      aria-label={`${g.name}, latest ${g.last?.value ?? '--'} ${g.unit}, ${TONE[tone].label}. ${inRange}`}
       title={inRange}
       className={`flex min-w-0 cursor-pointer flex-col items-start gap-1.5 rounded-[16px] border bg-surface px-3 py-2.5 text-left transition hover:-translate-y-0.5 ${on ? 'border-ink/55 bg-raised' : tone === 'watch' ? 'border-watch/45' : TONE[tone].border}`}
     >
-      <span className="w-full truncate text-sm font-medium text-text">{g.c.name}</span>
+      <span className="w-full truncate text-sm font-medium text-text">{g.name}</span>
       <span className="flex items-baseline gap-1">
         <span className="font-mono text-[22px] leading-7 font-medium tracking-[-0.03em] tabular-nums">
           {g.last?.value ?? '--'}
         </span>
-        <span className="font-mono text-[12px] text-text">{g.c.unit}</span>
+        <span className="font-mono text-[12px] text-text">{g.unit}</span>
       </span>
       <StatusPill tone={tone} />
       <span className="relative hidden h-10 w-full rounded-md bg-sunk min-[1700px]:block">

@@ -1,13 +1,19 @@
-import type { readiness } from '../../pages/designMock';
 import { IconInfo } from '../icons';
-import { TONE } from '../tone';
-import { StatusPill } from '../ui';
+import { TONE, type Tone } from '../tone';
+import { TonePill } from '../ui';
 
 // Owner B: compact mission readiness. The ring is neutral; status is carried by the pill (icon + word).
 
-type Readiness = ReturnType<typeof readiness>;
+export interface ReadinessView {
+  score: number;
+  /** null when no current reading (shows "No data"). */
+  tone: Tone | null;
+  headline: string;
+  sub: string;
+  parts: { label: string; value: string; tone?: Tone }[];
+}
 
-export function ReadinessSummary({ ready }: { ready: Readiness }) {
+export function ReadinessSummary({ ready }: { ready: ReadinessView }) {
   return (
     <section
       aria-labelledby="ready-h"
@@ -56,7 +62,7 @@ export function ReadinessSummary({ ready }: { ready: Readiness }) {
           </span>
         </div>
         <span className="group relative inline-flex" tabIndex={0} aria-label={ready.headline}>
-          <StatusPill tone={ready.tone} />
+          <TonePill tone={ready.tone} />
           <span
             role="tooltip"
             className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 rounded-lg border border-line-2 bg-raised px-3 py-1.5 text-[13px] font-medium whitespace-nowrap text-ink opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100"
@@ -70,7 +76,7 @@ export function ReadinessSummary({ ready }: { ready: Readiness }) {
           <div key={p.label} className="flex min-w-0 flex-col gap-0.5">
             <dt className="text-[13px] text-muted">{p.label}</dt>
             <dd
-              className={`m-0 truncate font-mono text-sm font-medium tabular-nums ${p.tone ? TONE[p.tone].text : 'text-ink'}`}
+              className={`m-0 truncate font-mono text-sm font-medium tabular-nums ${p.tone && p.tone !== 'normal' ? TONE[p.tone].text : 'text-ink'}`}
             >
               {p.value}
             </dd>

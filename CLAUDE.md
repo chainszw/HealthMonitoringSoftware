@@ -80,9 +80,15 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - `Reading`: id, indicatorId, value: number, timestamp: ISO string, note?, updatedAt? (last local
   add/edit, used by sync; absent on seed data)
 - `BodySystem`: id (heart|respiratory|bone|muscle|immune|eyes|mind|sleep|metabolic), name, spaceflightEffects,
-  hazards[] (names), indicatorIds[] (derived from each indicator's bodySystem)
+  hazards[] (names), indicatorIds[] (derived from each indicator's bodySystem), steps?[] (what to do, for
+  systems no indicator covers: eyes, bone, muscle)
 - `MissionProfile`: id (iss|lunar|mars), name, description, commsDelaySeconds {min,max} (one-way)
-- `Content`: { disclaimer, unknownStatusAction, hazards, indicators, bodySystems, missionProfiles }
+- `Content`: { disclaimer, unknownStatusAction, hazards, indicators, bodySystems, missionProfiles,
+  routine: { daily, extra }, moodTags }
+- `RoutineTaskContent`: id, time 'HH:MM', title, short?, why (may contain `{delay}`), category, duration?,
+  indicatorIds? (task ticks itself once each has a reading that day), showWhen? ('short_sleep').
+  `daily` counts for progress/streaks; `extra` is shown under "Also today". `MoodTag`: { id, label }
+  (saved in the mood reading's `note`).
 - Indicator ids: heart_rate, bp_systolic, bp_diastolic, blood_glucose, body_temp, spo2 (respiratory),
   sleep_hours and mood (1–5) (both mind)
 - `getStatus(indicator, value, unknownAction?)` → `{ level: green|amber|red|unknown, action, label? }`.
@@ -133,7 +139,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - [ ] Real content and sources in content.json; ranges verified (C)
 - [x] Visual design pass from the design canvas: shell, Dashboard, Body, Log, Trends, Routine (B, layout only)
 - [x] Trend chart amber/red markers, date range filter (B, on mock data)
-- [ ] Wire the new screens to real data (`useReadings`, `insights.ts`, content.json), then delete `src/pages/designMock.ts` (B)
+- [x] Wire the new screens to real data (`useReadings`, `insights.ts`, content.json), then delete `src/pages/designMock.ts` (B)
+- [x] Crew sign-in, sync status and "Send report" (sync now) in the header (B/A)
 - [ ] Mobile layout pass (B)
 - [x] Edit/delete readings, export data (A): logic done (`useReadings().update/remove`, API PATCH/DELETE,
       `exportDeviceReadings`, `/export.csv|json`); the buttons and screens are B's
@@ -181,28 +188,41 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - 2026-11-15: A: logic for B's new screens: `src/lib/today.ts` (combined blood pressure, needs-attention list,
   due checks, readiness breakdown, mission day) and `src/lib/routine.ts` (completions, streak, week);
   hooks `useRoutine(tasks)`, `useMissionDay()`; keys `chc:v1:routine`, `chc:v1:missionStart`.
+- 2026-11-15: Screens wired to real data (session at the user's request, editing A's, B's and C's files):
+  content.json gains `routine`, `moodTags` and body-system `steps` (PLACEHOLDER text for C); `trends.ts`,
+  `format.ts`, `requestSync`, `validateBloodPressure`, routine tasks tick from readings; seed ends on amber
+  BP after three short nights; every screen reads `useReadings()`; header gets crew sign-in, sync badge and
+  "Send report"; `designMock.ts` and `?alert` removed.
 
 ## Person B — status
 
 Person B owns visuals and UX. Only Person B's sessions edit this section.
 
-- **Done:** design v0.3 layout for every screen (`/`, `/body`, `/log`, `/trends`, `/routine`) plus the app shell.
-- **In progress:** fit-to-screen redesign of all five screens (healthcare-ui-design skill): Today rebuilt in `src/components/today/` (vitals 3×2 + readiness + needs attention, body figure removed from Today); Log, Body, Trends, Routine re-laid out as 3 columns with inner scrolling.
+- **Done:** design v0.3 layout for every screen (`/`, `/body`, `/log`, `/trends`, `/routine`) plus the app shell;
+  fit-to-screen redesign; all screens wired to real data (done from another session at the user's request,
+  branch `wire-screens`): `designMock.ts` deleted.
 - **Next:**
-  1. Wire screens to `useReadings()`, `getSystemStatus`/`getTrend`/`getReadiness` and content.json; delete `designMock.ts`.
-  2. Move guidance/disclaimer text now in pages and `designMock.ts` into content.json (with C).
-  3. Mobile layout pass.
+  1. Mobile layout pass (no horizontal scroll at 390 px already; layout polish left).
+  2. Optional: real timers for "re-measure in 15 min" (content.json has no durations yet, so they were removed).
 - **Decisions and gotchas:**
-  - **Screens show mock data on purpose.** `src/pages/designMock.ts` holds everything copied from the design
-    (values, thresholds, guidance text). It breaks the "text lives in content.json" rule until wired. Don't build on it.
+  - Screen view helpers live in `components/vitals.ts`: an "entry" is an indicator id or `'bp'` (systolic +
+    diastolic logged together); `entryStatus`, `dueEntries`, short labels/units (`Blood oxygen`, `h`), `logHref`.
+  - `/log?i=<entry>` opens that entry's form (used by every "Re-measure"/"Log" link).
+  - Unknown status (no current reading) has no tone: `toneOf()` returns null, shown as `NoDataPill`/`TonePill`.
+  - "Flag for surgeon" buttons and fake timers are gone: readings reach the flight surgeon through sync, so
+    screens say "Your flight surgeon sees this after the next sync" when sync is on. The Trends note is saved
+    as the latest reading's `note`.
+  - Header: `AccountMenu` (avatar) signs in with a crew token, shows sync state, signs out, resets demo data.
+    The "Send report" button calls `requestSync()` and is hidden when sync is off.
   - Body figure is a flat 2D SVG (`BodyFigure.tsx`), not the design's three.js model: no new heavy dependency,
-    works offline. Callouts cover mind/eyes/heart/immune/bone; leader lines are measured with a ResizeObserver.
+    works offline. Callouts cover mind/eyes/heart/lungs/immune/bone (`components/figure.ts`, short labels);
+    metabolic is listed only. Leader lines are measured with a ResizeObserver.
   - Trends uses a hand-drawn SVG chart (matches the design); Recharts and `TrendChart.tsx` are unused now.
   - Fonts: Instrument Sans / DM Mono only if installed locally (no Google Fonts at runtime); bundling needs a dependency, so ask first.
   - Every screen fits with no page scroll from 1280×600 up (1366×768 laptops through big monitors): `.chc-fit*` / `.chc-scroll` in `index.css`. Pages use `xl:min-h-0` chains and put long lists in inner scroll areas. Below that, normal stacked flow.
   - Page headers use the compact `PageHeader` (`components/ui.tsx`); `PageTitle` is unused.
   - Status colour rule: amber/red only for abnormal items; normal text is neutral, only the small pill/icon is green.
-  - `?alert` on `/` and `/body` shows the Act-now state.
+  - Demo: the seed ends on amber BP 134/86 after three short nights; log e.g. 160/125 to show Act now.
   - Unused for now, not deleted: `StatusCard`, `VitalsForm`, `Streak`, `TrendChart`, `Disclaimer`.
 
 ## Person A — status
@@ -254,7 +274,8 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - A frontend outside this repo can call the HTTP API directly (send `Authorization: Bearer <token>`): see `docs/backend-roadmap.md`.
   - Flight-surgeon console: `fetchCrewOverview(apiUrl, token, alertDays?)`, `fetchCrewMemberOverview(...)`, `fetchCrewTrend(apiUrl, token, crewId, indicatorId, days?)` and `fetchMe(...)` from `src/lib/crewApi.ts`. Each resolves to `{ ok: true, data }` or `{ ok: false, status, error }` (never throws). Response types in `src/lib/syncProtocol.ts`; trend points have the same shape as `getTrend()`, so `TrendChart` can draw them.
   - Export: `exportDeviceReadings(readings, 'csv' | 'json', session?.crew)` from `src/lib/exportData.ts` returns `{ filename, mimeType, content }` offline; a console uses `fetchExport(apiUrl, token, format, filters)`. Saving the file (Blob download) is UI.
-  - **Use `getStatus()` (content.json bands), not the thresholds in `designMock.ts`.** They disagree: e.g. heart rate normal is 60–100 in content.json but 50–90 in the mock; sleep is red under 6 h vs under 4.5 h; blood pressure normal is 101–119 systolic vs under 130/85. Hazard ids are content.json's (`isolation_confinement`, `distance_from_earth`, `altered_gravity`, `hostile_environment`, `radiation`), not the mock's short ones.
+  - Series and formatting (`src/lib/trends.ts`, `src/lib/format.ts`): `dailySeries`/`bpDailySeries`/`seriesFor(key, days, readings)` → one slot per local day (latest reading or null; BP has `value2` = diastolic and the worse level); `summarizeSeries(slots, tolerance)` → `{ total, inRange, off, worst, latest, direction }`; `chartDomain`, `lastDays`; `formatValue`, `greenBand`, `formatRange` ("60–100"), `formatDelay` ("22 min"), `formatWhen`, `formatClock`.
+  - `requestSync()` (`src/lib/sync.ts`) syncs now; returns false when sync is off. `validateBloodPressure(sys, dia, rawSys, rawDia)` in `validation.ts`.
   - Today screen (`src/lib/today.ts`, pass `readings` from `useReadings()`): `bloodPressureStatus(readings)` → `{ level, action, display: '134/86', systolic?, diastolic? }` (worse of the two, per content.json); `getAttention(readings)` → amber/red items, red first, with `name`, `value`, `unit`, `label`, `action`, `actionSteps` (blood pressure as one item, key `'bp'`); `getDueChecks(readings)` → daily checks not yet logged today (glucose is not daily); `getReadinessBreakdown(readings, now?, routine?)` → `{ score, streak, level, vitals: { ok, off }, sleep: { hours?, target, level }, routine? }`; `useMissionDay()` → day number (from `chc:v1:missionStart`, else the first reading).
-  - Routine screen: `useRoutine(tasks)` (tasks `{ id, time?: 'HH:MM', ...your fields }`, text from content.json) → `{ day: { items: [{ task, doneAt?, overdue }], done, total }, streak, week: [{ day, done: 0–1 }] x7, toggle(taskId) }`. Pass `day.done`/`day.total` to `getReadinessBreakdown` for the Routine part.
+  - Routine screen: `useRoutine(tasks)` (tasks `{ id, time?: 'HH:MM', indicatorIds?, ...your fields }`, from `content.routine`) → `{ day: { items: [{ task, doneAt?, overdue, fromReadings? }], done, total }, streak, week: [{ day, done: 0–1 }] x7, toggle(taskId) }`. Tasks with `indicatorIds` are done once each indicator has a reading that day. Pass `day.done`/`day.total` to `getReadinessBreakdown` for the Routine part.
   - Comms delay: the app already sends the selected mission with every sync. A flight-surgeon screen can show each astronaut's `commsDelaySeconds` and `inTransit: { count, nextArrivalAt }` from the overview ("1 reading in transit from Mars, arrives in 8 s").

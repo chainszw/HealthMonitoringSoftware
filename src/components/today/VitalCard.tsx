@@ -1,12 +1,31 @@
 import { Link } from 'react-router';
-import type { VitalTile } from '../../pages/designMock';
 import { IconArrowDown, IconArrowRight, IconArrowUp } from '../icons';
-import { btn, TONE } from '../tone';
+import { btn, TONE, type Tone } from '../tone';
 import { StatusPill } from '../ui';
 import { Sparkline } from './Sparkline';
 
 // Owner B: one vital on Today. Status = pill (icon + word) + border; value always with its unit.
 // Actions live in "Needs attention" and the act-now banner, so the card stays a pure status read-out.
+
+export interface VitalTile {
+  label: string;
+  /** Lower-case name for the "Log …" button. */
+  short: string;
+  unit: string;
+  /** One line under the value (band label from content.json). */
+  meaning: string;
+  tone?: Tone;
+  value?: string;
+  time?: string;
+  /** Link for the "Log …" button. */
+  href: string;
+  /** Last 7 days, oldest first. */
+  data?: number[];
+  min?: number;
+  max?: number;
+  /** Normal range [low, high] drawn as a band behind the sparkline. */
+  band?: [number, number];
+}
 
 const CARD =
   '[&>*]:shrink-0 flex min-h-[176px] min-w-0 flex-col gap-1.5 overflow-hidden rounded-[18px] border bg-surface px-4 pt-3 pb-3.5 xl:min-h-0';
@@ -104,7 +123,7 @@ function EmptyVitalCard({ t }: { t: VitalTile }) {
       </span>
       <p className="m-0 truncate text-sm text-text">{t.meaning}</p>
       <div className="mt-auto">
-        <Link to="/log" className={btn('secondary', 'h-9 px-4 no-underline')}>
+        <Link to={t.href} className={btn('secondary', 'h-9 px-4 no-underline')}>
           Log {t.short}
         </Link>
       </div>

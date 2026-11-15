@@ -1,14 +1,32 @@
 import { Link } from 'react-router';
-import type { attention, DUE_TODAY } from '../../pages/designMock';
-import { IconClock } from '../icons';
-import { btn, TONE } from '../tone';
+import { IconCheckCircle, IconClock } from '../icons';
+import { btn, TONE, type Tone } from '../tone';
 import { ProgressBar, StatusTile } from '../ui';
 
 // Owner B: what to do next on Today: flagged readings (act first, then watch) and today's due checks.
 // The list scrolls inside the panel so the page itself never scrolls on laptop screens.
 
-type Item = ReturnType<typeof attention>[number];
-const RANK = { act: 0, watch: 1, normal: 2 } as const;
+export interface AttentionView {
+  key: string;
+  tone: Exclude<Tone, 'normal'>;
+  /** "Blood pressure 134/86 mmHg" */
+  title: string;
+  /** First action step from content.json. */
+  detail: string;
+  /** Button label, e.g. "Re-measure". */
+  cta: string;
+  href: string;
+}
+
+export interface DueView {
+  key: string;
+  name: string;
+  /** "Last logged yesterday 07:40" */
+  when: string;
+  href: string;
+}
+
+const RANK = { act: 0, watch: 1 } as const;
 
 export function AttentionPanel({
   items,
@@ -16,8 +34,8 @@ export function AttentionPanel({
   logged,
   total,
 }: {
-  items: Item[];
-  due: typeof DUE_TODAY;
+  items: AttentionView[];
+  due: DueView[];
   logged: number;
   total: number;
 }) {
@@ -39,7 +57,7 @@ export function AttentionPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
         <ul className="m-0 flex list-none flex-col p-0">
           {sorted.map((a) => (
-            <li key={a.title} className="flex items-center gap-3 border-t border-line py-2.5">
+            <li key={a.key} className="flex items-center gap-3 border-t border-line py-2.5">
               <StatusTile tone={a.tone} size={34} />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-[15px] leading-5 font-medium text-ink">{a.title}</span>
@@ -47,14 +65,22 @@ export function AttentionPanel({
                   <span className={TONE[a.tone].text}>{TONE[a.tone].label}</span> · {a.detail}
                 </span>
               </div>
-              <button
-                type="button"
-                className={btn('secondary', 'h-10 cursor-pointer px-3 whitespace-nowrap')}
+              <Link
+                to={a.href}
+                className={btn('secondary', 'h-10 px-3 whitespace-nowrap no-underline')}
               >
                 {a.cta}
-              </button>
+              </Link>
             </li>
           ))}
+          {sorted.length === 0 && (
+            <li className="flex items-center gap-3 border-t border-line py-2.5 text-[15px] text-text">
+              <span className="text-ok">
+                <IconCheckCircle size={20} strokeWidth={2.2} />
+              </span>
+              Nothing flagged in your recent readings.
+            </li>
+          )}
         </ul>
 
         <div className="flex items-center gap-3 border-t border-line pt-3 pb-1">
@@ -71,7 +97,7 @@ export function AttentionPanel({
         </div>
         <ul className="m-0 flex list-none flex-col p-0">
           {due.map((d) => (
-            <li key={d.name} className="flex items-center gap-3 py-1.5">
+            <li key={d.key} className="flex items-center gap-3 py-1.5">
               <span className="flex size-[34px] shrink-0 items-center justify-center text-muted">
                 <IconClock size={18} strokeWidth={1.8} />
               </span>
@@ -80,7 +106,7 @@ export function AttentionPanel({
                 <span className="text-[13px] leading-[18px] text-muted">{d.when}</span>
               </div>
               <Link
-                to="/log"
+                to={d.href}
                 aria-label={`Log ${d.name}`}
                 className={btn('secondary', 'h-10 min-w-[56px] px-3 no-underline')}
               >
@@ -88,6 +114,9 @@ export function AttentionPanel({
               </Link>
             </li>
           ))}
+          {due.length === 0 && (
+            <li className="py-1.5 text-[13px] text-muted">All of today’s checks are logged.</li>
+          )}
         </ul>
       </div>
     </section>

@@ -4,6 +4,17 @@
 
 export type Tone = 'normal' | 'watch' | 'act';
 
+/** getStatus level → UI tone. 'unknown' (no reading) has no tone: show NoDataPill instead. */
+export function toneOf(level: 'green' | 'amber' | 'red' | 'unknown'): Tone | null {
+  return level === 'green'
+    ? 'normal'
+    : level === 'amber'
+      ? 'watch'
+      : level === 'red'
+        ? 'act'
+        : null;
+}
+
 export const TONE: Record<
   Tone,
   { label: string; hex: string; text: string; bg: string; border: string; line: string }

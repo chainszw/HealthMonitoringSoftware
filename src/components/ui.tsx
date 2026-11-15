@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { IconCheckCircle, IconOctagon, IconTriangle } from './icons';
+import { IconCheckCircle, IconMinus, IconOctagon, IconTriangle } from './icons';
 import { TONE, type Tone } from './tone';
 
 // Owner B: small building blocks shared by every screen of the design.
@@ -28,6 +28,21 @@ export function StatusPill({ tone, label }: { tone: Tone; label?: string }) {
       {label ?? t.label}
     </span>
   );
+}
+
+/** Neutral badge for "no reading": a dash + word, no status colour. */
+export function NoDataPill({ label = 'No data' }: { label?: string }) {
+  return (
+    <span className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-lg bg-raised pr-2 pl-1.5 text-[13px] font-medium text-muted">
+      <IconMinus size={14} strokeWidth={2.6} />
+      {label}
+    </span>
+  );
+}
+
+/** StatusPill for a known tone, NoDataPill otherwise. */
+export function TonePill({ tone, label }: { tone: Tone | null; label?: string }) {
+  return tone ? <StatusPill tone={tone} label={label} /> : <NoDataPill />;
 }
 
 /** Square icon tile used in alert and list rows. */

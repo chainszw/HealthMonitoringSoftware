@@ -1,10 +1,24 @@
+import { Link } from 'react-router';
 import { IconOctagon } from '../icons';
 import { btn } from '../tone';
 
-// Owner B: act-now alert across the top of Today. role=alert; it stays until the reading is handled.
-// LAYOUT TEST: text is mock (moves to content.json when wired).
+// Owner B: act-now alert across the top of Today. role=alert; it stays while the latest reading
+// is red. The action text comes from content.json (via getAttention).
 
-export function ActNowBanner() {
+export function ActNowBanner({
+  title,
+  action,
+  href,
+  note,
+}: {
+  /** "Blood pressure 160/100 mmHg at 09:04" */
+  title: string;
+  action: string;
+  /** Re-measure link. */
+  href: string;
+  /** e.g. "Your flight surgeon sees this after the next sync." */
+  note?: string;
+}) {
   return (
     <div
       role="alert"
@@ -14,22 +28,13 @@ export function ActNowBanner() {
         <IconOctagon size={28} />
       </span>
       <div className="flex min-w-0 flex-[1_1_360px] flex-col">
-        <span className="text-[13px] font-medium text-act">
-          Act now · Blood pressure <span className="font-mono">156/99</span> mmHg at{' '}
-          <span className="font-mono">09:04</span>
-        </span>
-        <span className="text-base leading-6 font-medium text-ink">
-          Stop, rest, re-measure in 15 min. Still high? Flag it for your flight surgeon.
-        </span>
+        <span className="text-[13px] font-medium text-act">Act now · {title}</span>
+        <span className="text-base leading-6 font-medium text-ink">{action}</span>
+        {note && <span className="text-[13px] text-text">{note}</span>}
       </div>
-      <div className="flex gap-2">
-        <button type="button" className={btn('primary', 'cursor-pointer !bg-act px-4')}>
-          Start 15-min timer
-        </button>
-        <button type="button" className={btn('ghost', 'cursor-pointer !border-act-l px-4')}>
-          Flag for surgeon
-        </button>
-      </div>
+      <Link to={href} className={btn('primary', '!bg-act px-4 no-underline')}>
+        Re-measure
+      </Link>
     </div>
   );
 }

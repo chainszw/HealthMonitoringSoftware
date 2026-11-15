@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import type { FigureSystem } from '../pages/designMock';
-import { IconRotate } from './icons';
+import type { FigureSystem } from './figure';
+import { IconMinus, IconRotate } from './icons';
 import { TONE, type Tone } from './tone';
 import { StatusIcon } from './ui';
 
@@ -12,7 +12,8 @@ import { StatusIcon } from './ui';
 export interface FigureCallout {
   id: FigureSystem;
   name: string;
-  tone: Tone;
+  /** null = no current reading (neutral). */
+  tone: Tone | null;
   text: string;
 }
 
@@ -32,18 +33,22 @@ const ANCHOR: Record<FigureSystem, [number, number]> = {
   mind: [200, 52],
   eyes: [212, 84],
   heart: [216, 196],
+  respiratory: [180, 206],
   immune: [178, 262],
   bone: [168, 392],
 };
-// Callout placement: [side, top %]. Left: Mind / Immune / Bone. Right: Eyes / Heart.
+// Callout placement: [side, top %]. Left: Mind / Lungs / Immune / Bone. Right: Eyes / Heart.
 const PLACE: Record<FigureSystem, ['left' | 'right', number]> = {
   mind: ['left', 3],
   eyes: ['right', 9],
   heart: ['right', 30],
+  respiratory: ['left', 18],
   immune: ['left', 33],
   bone: ['left', 62],
 };
 const NEUTRAL_ZONE = '#4d5a73';
+/** Leader line colour for a system with no current reading. */
+const NO_DATA = '#7b879c';
 
 type Line = { id: FigureSystem; x1: number; y1: number; x2: number; y2: number };
 
@@ -88,10 +93,10 @@ export function BodyFigure({ systems, selected, onSelect, hint, minHeight = 480 
     return () => ro.disconnect();
   }, []);
 
-  const tone = (id: FigureSystem) => systems.find((s) => s.id === id)?.tone ?? 'normal';
+  const tone = (id: FigureSystem) => systems.find((s) => s.id === id)?.tone ?? null;
   const zoneFill = (id: FigureSystem) => {
     const t = tone(id);
-    return t === 'normal' ? NEUTRAL_ZONE : TONE[t].hex;
+    return !t || t === 'normal' ? NEUTRAL_ZONE : TONE[t].hex;
   };
   const zoneOpacity = (id: FigureSystem) => (focus && focus !== id ? 0.45 : 0.95);
 
@@ -133,6 +138,9 @@ export function BodyFigure({ systems, selected, onSelect, hint, minHeight = 480 
             <ellipse cx="187" cy="66" rx="7" ry="4" />
             <ellipse cx="213" cy="66" rx="7" ry="4" />
           </g>
+          <g fill={zoneFill('respiratory')} opacity={zoneOpacity('respiratory')}>
+            <ellipse cx="178" cy="206" rx="14" ry="28" />
+          </g>
           <path
             d="M216 214 C196 200 194 182 206 178 C212 176 216 180 216 184 C216 180 220 176 226 178 C238 182 236 200 216 214 Z"
             fill={zoneFill('heart')}
@@ -166,7 +174,7 @@ export function BodyFigure({ systems, selected, onSelect, hint, minHeight = 480 
       >
         {lines.map((l) => {
           const t = tone(l.id);
-          const c = TONE[t].hex;
+          const c = t ? TONE[t].hex : NO_DATA;
           const strong = focus === l.id;
           return (
             <g key={l.id}>
@@ -181,7 +189,7 @@ export function BodyFigure({ systems, selected, onSelect, hint, minHeight = 480 
               <g transform={`translate(${l.x2} ${l.y2})`}>
                 <circle r="4.5" fill={c} />
                 <circle r="9" fill="none" stroke={c} strokeOpacity="0.45" />
-                {t !== 'normal' && (
+                {t && t !== 'normal' && (
                   <circle r="11" fill="none" stroke={c} strokeOpacity="0.4">
                     <animate
                       attributeName="r"
@@ -209,13 +217,19 @@ export function BodyFigure({ systems, selected, onSelect, hint, minHeight = 480 
         const style = { [side]: 0, top: `${top}%` };
         const body = (
           <>
-            <span className={`inline-flex size-5 shrink-0 ${TONE[s.tone].text}`}>
-              <StatusIcon tone={s.tone} size={20} strokeWidth={2.2} />
+            <span
+              className={`inline-flex size-5 shrink-0 ${s.tone ? TONE[s.tone].text : 'text-muted'}`}
+            >
+              {s.tone ? (
+                <StatusIcon tone={s.tone} size={20} strokeWidth={2.2} />
+              ) : (
+                <IconMinus size={20} strokeWidth={2.2} />
+              )}
             </span>
             <span className="flex min-w-0 flex-col gap-px">
               <span className="truncate text-sm leading-[18px] font-medium">{s.name}</span>
               <span
-                className={`truncate text-[13px] leading-[17px] ${s.tone === 'normal' ? 'text-muted' : `font-medium ${TONE[s.tone].text}`}`}
+                className={`truncate text-[13px] leading-[17px] ${!s.tone || s.tone === 'normal' ? 'text-muted' : `font-medium ${TONE[s.tone].text}`}`}
               >
                 {s.text}
               </span>
