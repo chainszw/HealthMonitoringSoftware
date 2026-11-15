@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
-// Owner B: a flowing neon chart (canvas). Flat colours only: a flat normal band, a glowing line,
+// Owner B: a flowing chart (canvas) on a faint grid panel: a flat normal band with dashed edges,
+// a soft line (status colour when abnormal),
 // ▲/▼ markers on readings outside the band, and a pulsing latest point.
 //  - Streaming (`tickAt` set, demo mode): the line slides left smoothly as each new point arrives.
 //  - Otherwise (real data): the values stay put; light dashes flow along the line and a cursor
@@ -18,9 +19,11 @@ interface Props {
   label: string;
 }
 
-const CYAN = '#29f0ff';
-const PINK = '#ff2fd0';
-const WATCH = '#ffd23f';
+// Kept in sync with TONE (tone.ts) / index.css.
+const ACCENT = '#5ab9fc';
+const WATCH = '#fbbf4a';
+const ACT = '#ff8a8a';
+const GRID = 'rgba(233,237,243,0.06)';
 const TICK_MS = 1000;
 
 export function NeonChart({ data, min, max, band, color, tickAt, label }: Props) {
@@ -63,23 +66,27 @@ export function NeonChart({ data, min, max, band, color, tickAt, label }: Props)
       const frac = streaming && !reduce ? Math.min(1, (now - t) / TICK_MS) : 0;
       const x = (i: number) => (i - frac) * step;
 
-      // Grid: flat 1px lines.
-      ctx.strokeStyle = 'rgba(41,240,255,0.08)';
+      // Grid: faint square cells (flat 1px lines).
+      ctx.strokeStyle = GRID;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      for (let gy = 0; gy <= 4; gy++) {
-        const yy = Math.round(pad + (gy / 4) * (h - pad * 2)) + 0.5;
-        ctx.moveTo(0, yy);
-        ctx.lineTo(w, yy);
+      const cell = Math.max(16, (h - pad * 2) / 3);
+      for (let gy = pad; gy <= h; gy += cell) {
+        ctx.moveTo(0, Math.round(gy) + 0.5);
+        ctx.lineTo(w, Math.round(gy) + 0.5);
+      }
+      for (let gx = w; gx >= 0; gx -= cell) {
+        ctx.moveTo(Math.round(gx) + 0.5, 0);
+        ctx.lineTo(Math.round(gx) + 0.5, h);
       }
       ctx.stroke();
 
       // Normal band: flat fill + dashed edges.
       if (b) {
-        ctx.fillStyle = 'rgba(41,240,255,0.07)';
+        ctx.fillStyle = 'rgba(233,237,243,0.035)';
         ctx.fillRect(0, y(b[1]), w, y(b[0]) - y(b[1]));
         ctx.setLineDash([3, 4]);
-        ctx.strokeStyle = 'rgba(41,240,255,0.35)';
+        ctx.strokeStyle = 'rgba(233,237,243,0.22)';
         ctx.beginPath();
         for (const e of b) {
           ctx.moveTo(0, Math.round(y(e)) + 0.5);
@@ -89,7 +96,7 @@ export function NeonChart({ data, min, max, band, color, tickAt, label }: Props)
         ctx.setLineDash([]);
       }
 
-      // The line, with a neon glow (two flat strokes: a wide dim one, then the bright core).
+      // The line: a faint halo under a crisp 2px core.
       const path = () => {
         ctx.beginPath();
         d.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))));
@@ -98,8 +105,8 @@ export function NeonChart({ data, min, max, band, color, tickAt, label }: Props)
       ctx.lineCap = 'round';
       path();
       ctx.strokeStyle = c;
-      ctx.globalAlpha = 0.25;
-      ctx.lineWidth = 6;
+      ctx.globalAlpha = 0.12;
+      ctx.lineWidth = 5;
       ctx.stroke();
       ctx.globalAlpha = 1;
       ctx.lineWidth = 2;
@@ -110,7 +117,7 @@ export function NeonChart({ data, min, max, band, color, tickAt, label }: Props)
         path();
         ctx.setLineDash([2, 14]);
         ctx.lineDashOffset = -((now / 40) % 16);
-        ctx.strokeStyle = '#e8fbff';
+        ctx.strokeStyle = 'rgba(233,237,243,0.5)';
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.setLineDash([]);
@@ -127,7 +134,7 @@ export function NeonChart({ data, min, max, band, color, tickAt, label }: Props)
           const prev = d[i - 1] ?? v;
           const next = d[i + 1] ?? v;
           if (high ? v < prev || v < next : v > prev || v > next) return;
-          ctx.fillStyle = high ? WATCH : PINK;
+          ctx.fillStyle = high ? WATCH : ACT;
           ctx.fillText(high ? '▲' : '▼', x(i), high ? y(v) - 6 : y(v) + 14);
         });
       }
@@ -149,8 +156,8 @@ export function NeonChart({ data, min, max, band, color, tickAt, label }: Props)
       // Sweeping cursor (real data mode).
       if (!streaming && !reduce) {
         const sx = ((now / 4000) % 1) * w;
-        ctx.fillStyle = CYAN;
-        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = ACCENT;
+        ctx.globalAlpha = 0.25;
         ctx.fillRect(Math.round(sx), 0, 1, h);
         ctx.globalAlpha = 1;
       }
@@ -168,5 +175,12 @@ export function NeonChart({ data, min, max, band, color, tickAt, label }: Props)
     };
   }, []);
 
-  return <canvas ref={ref} role="img" aria-label={label} className="block size-full" />;
+  return (
+    <canvas
+      ref={ref}
+      role="img"
+      aria-label={label}
+      className="block size-full rounded-lg border border-line bg-sunk/70"
+    />
+  );
 }

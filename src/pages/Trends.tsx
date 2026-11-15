@@ -402,7 +402,7 @@ export function Trends() {
                         className="chc-draw"
                         points={g.pts[0]}
                         fill="none"
-                        stroke="#29f0ff"
+                        stroke="#5ab9fc"
                         strokeWidth="2"
                         strokeLinejoin="round"
                         vectorEffect="non-scaling-stroke"
@@ -412,7 +412,8 @@ export function Trends() {
                         className="chc-flow"
                         points={g.pts[0]}
                         fill="none"
-                        stroke="#e8fbff"
+                        stroke="#e9edf3"
+                        strokeOpacity="0.55"
                         strokeWidth="2"
                         strokeLinecap="round"
                         vectorEffect="non-scaling-stroke"
@@ -423,7 +424,7 @@ export function Trends() {
                           className="chc-draw"
                           points={g.pts[1]}
                           fill="none"
-                          stroke="#29f0ff"
+                          stroke="#5ab9fc"
                           strokeOpacity="0.6"
                           strokeWidth="2"
                           strokeDasharray="5 4"
@@ -596,7 +597,7 @@ function SmallMultiple({ g, on, onPick }: { g: Geometry; on: boolean; onPick: ()
             className="chc-draw"
             points={g.pts[0]}
             fill="none"
-            stroke={on ? '#29f0ff' : 'rgba(233,237,243,0.55)'}
+            stroke={on ? '#5ab9fc' : 'rgba(233,237,243,0.55)'}
             strokeWidth="1.6"
             vectorEffect="non-scaling-stroke"
           />
@@ -604,7 +605,7 @@ function SmallMultiple({ g, on, onPick }: { g: Geometry; on: boolean; onPick: ()
             <polyline
               points={g.pts[1]}
               fill="none"
-              stroke={on ? '#29f0ff' : 'rgba(233,237,243,0.55)'}
+              stroke={on ? '#5ab9fc' : 'rgba(233,237,243,0.55)'}
               strokeOpacity="0.6"
               strokeWidth="1.6"
               vectorEffect="non-scaling-stroke"

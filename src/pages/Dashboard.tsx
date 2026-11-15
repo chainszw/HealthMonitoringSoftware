@@ -255,8 +255,8 @@ export function Dashboard() {
           <h2 id="vit-h" className="sr-only">
             Today’s vitals
           </h2>
-          {/* Floating read-out lines, no tiles. */}
-          <div className="flex flex-col border-t border-line xl:min-h-0 xl:flex-1">
+          {/* One card per vital, stacked. */}
+          <div className="flex flex-col gap-2 xl:min-h-0 xl:flex-1">
             {tiles.map((t, i) => (
               <VitalRow
                 key={t.label}

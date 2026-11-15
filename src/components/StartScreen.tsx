@@ -73,7 +73,7 @@ export function StartScreen() {
   const ready = mode !== 'checking';
 
   return (
-    <div className="fixed inset-0 overflow-hidden text-ink">
+    <div className="chc-theme-neon fixed inset-0 overflow-hidden text-ink">
       <CalmDots opacity={0.55} />
 
       {/* ZOĒ half */}

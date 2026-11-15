@@ -171,7 +171,7 @@ export const SYSTEM_ORGAN: Partial<Record<BodySystemId, string>> = {
 };
 
 /** Status hex per tone (kept in sync with tone.ts / index.css). */
-const TINT: Record<'watch' | 'act', string> = { watch: '#ffd23f', act: '#ff4d6d' };
+const TINT: Record<'watch' | 'act', string> = { watch: '#fbbf4a', act: '#ff8a8a' };
 
 /** Organ tint from body-system tones: organs of a Watch / Act now system take its colour. */
 export function organTint(

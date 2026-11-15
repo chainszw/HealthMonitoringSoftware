@@ -85,7 +85,7 @@ export function CrewCharacter({ view, model }: { view: CharacterView; model?: Re
             {/* Scan line sweeping the body */}
             <div
               aria-hidden="true"
-              className="chc-fig-scan pointer-events-none absolute inset-x-[14%] h-0.5 bg-accent shadow-[0_0_10px_rgba(41,240,255,0.8),0_6px_0_rgba(255,47,208,0.45)]"
+              className="chc-fig-scan pointer-events-none absolute inset-x-[14%] h-px bg-accent/60 shadow-[0_0_8px_rgba(90,185,252,0.5)]"
             />
           </>
         )}

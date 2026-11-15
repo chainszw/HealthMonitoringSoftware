@@ -141,7 +141,7 @@ export function Zoe() {
             <div
               role="radiogroup"
               aria-label="Gravity setting"
-              className="chc-glass flex flex-wrap items-center gap-1 rounded-full border border-line p-1 pl-3.5"
+              className="flex flex-wrap items-center gap-1 rounded-full bg-bg/70 backdrop-blur-sm border border-line p-1 pl-3.5"
             >
               <span className="mr-1 text-[13px] text-muted">Gravity</span>
               {ZOE_ENVS.map((e) => (

@@ -103,7 +103,7 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - localStorage keys: `chc:v1:readings`, `chc:v1:mission`, `chc:v1:outbox` (changes not yet sent to the
   server, latest per id), `chc:v1:sync` ({ cursor, lastSyncedAt }), `chc:v1:session` ({ token, crew }:
   who is signed in for sync), `chc:v1:routine` (routine completions per local day),
-  `chc:v1:missionStart` (optional mission start, ISO). Bump `v1` if the Reading shape changes incompatibly. Old ids
+  `chc:v1:missionStart` (optional mission start, ISO), `chc:v1:dev` (device-only dev settings, e.g. backdrop). Bump `v1` if the Reading shape changes incompatibly. Old ids
   `glucose`/`temperature` are migrated on load.
 - API wire types (`src/lib/syncProtocol.ts`, shared by app and server): `SyncChange` = Reading +
   `updatedAt` + `deletedAt?`; `POST /sync { since, changes, mission? }` → `{ changes, cursor, rejected }`;
@@ -115,7 +115,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - Only `src/lib/storage.ts` touches `localStorage`. Components use `useReadings()` / `useMission()`.
 - Pure logic goes in `src/lib/` with a colocated `*.test.ts`. Keep `getStatus` pure.
 - Function components, **named exports** (no default exports except where `React.lazy` needs adapting).
-- Tailwind classes only (no CSS modules/styled-components). Design tokens (v0.3) in `index.css` `@theme`:
+- Tailwind classes only (no CSS modules/styled-components). Design tokens (v0.6 = the v0.3 palette) in `index.css` `@theme`
+  (the start screen alone keeps the v0.5 neon palette via `.chc-theme-neon` on its root):
   surfaces `bg-bg|surface|raised|hover|sunk`, text `text-ink|text|muted|faint`, borders `border-line|line-2`,
   `accent`, status `ok|watch|act` (+ `-t` tints, `act-l` border). Old `status-*`/`space-*` tokens remain for now.
 - UI status is a `Tone` (`normal|watch|act`, `src/components/tone.ts`), always shown as shape + word + colour
@@ -221,6 +222,11 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   ported from the "ZOĒ clear-case sensor model" artifact (see-through case, 19 numbered sensor markers,
   parts list; the tesseract frame is gone). Background is calm flat blue with a breathing dot field
   (`CalmDots`, replaces `MatrixRain`).
+- 2026-11-15: B: visual overhaul back to the v0.3 look (session at the user's request): v0.3 tokens
+  restored (neon v0.5 scoped to the start screen with `.chc-theme-neon`); mission-sky backdrop and dev
+  panel from `b/backdrops` (`components/backdrop/`, `DevPanel`, `?bg=sky|grid|aurora`, `?dev`, key
+  `chc:v1:dev`, `loadDevSettings`/`saveDevSetting` in A's `storage.ts`) replace `CalmDots` in the shell;
+  Today's vital rows are status-bordered cards with the live charts on a grid panel. No features removed.
 
 ## Person B — status
 

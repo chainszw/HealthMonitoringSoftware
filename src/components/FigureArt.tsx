@@ -36,20 +36,20 @@ export function FigureArt({
       className={className}
     >
       {/* Floor glow: stays put while the body drifts above it */}
-      <ellipse cx="200" cy="588" rx="120" ry="12" fill="rgba(41,240,255,0.08)" />
-      <ellipse cx="200" cy="588" rx="86" ry="8" fill="none" stroke="#29f0ff" strokeOpacity="0.5" />
+      <ellipse cx="200" cy="588" rx="120" ry="12" fill="rgba(90,185,252,0.06)" />
+      <ellipse cx="200" cy="588" rx="86" ry="8" fill="none" stroke="#5ab9fc" strokeOpacity="0.35" />
       <ellipse
         cx="200"
         cy="588"
         rx="120"
         ry="12"
         fill="none"
-        stroke="#ff2fd0"
-        strokeOpacity="0.35"
+        stroke="#e9edf3"
+        strokeOpacity="0.12"
       />
 
       <g className="chc-fig-float" style={{ transformOrigin: '200px 300px' }}>
-        <g fill="#0b1636" stroke="#29f0ff" strokeWidth="1.5">
+        <g fill="#151b29" stroke="rgba(233,237,243,0.32)" strokeWidth="1.5">
           {/* legs */}
           <path d="M162 352 L150 580 Q150 590 162 590 L186 590 Q194 590 194 580 L198 372 Z" />
           <path d="M238 352 L250 580 Q250 590 238 590 L214 590 Q206 590 206 580 L202 372 Z" />
@@ -67,8 +67,8 @@ export function FigureArt({
         {/* Torso breathes, with its zones */}
         <g className="chc-fig-breathe">
           <path
-            fill="#0b1636"
-            stroke="#29f0ff"
+            fill="#151b29"
+            stroke="rgba(233,237,243,0.32)"
             strokeWidth="1.5"
             d="M150 126 Q200 116 250 126 Q284 134 280 176 L262 300 Q258 330 246 360 L154 360 Q142 330 138 300 L120 176 Q116 134 150 126 Z"
           />
@@ -106,7 +106,7 @@ export function FigureArt({
 
         {/* Neck + head sway, with the mind and eye zones */}
         <g className="chc-fig-head">
-          <g fill="#0b1636" stroke="#29f0ff" strokeWidth="1.5">
+          <g fill="#151b29" stroke="rgba(233,237,243,0.32)" strokeWidth="1.5">
             <rect x="184" y="98" width="32" height="34" rx="10" />
             <ellipse cx="200" cy="62" rx="36" ry="44" />
           </g>
