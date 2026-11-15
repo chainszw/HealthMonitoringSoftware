@@ -74,6 +74,21 @@ describe('edits and the sync outbox', () => {
     expect(loadOutbox()[r.id]).toMatchObject({ value: 70, deletedAt: T1.toISOString() });
   });
 
+  it('versions each change after the previous one, even in the same millisecond', () => {
+    const [r] = addReading({ indicatorId: 'heart_rate', value: 70 }, T0);
+    const [u] = updateReading(r.id, { value: 75 }, T0);
+    expect(u.updatedAt).toBe('2026-11-15T08:00:00.001Z');
+    deleteReading(r.id, T0);
+    expect(loadOutbox()[r.id]).toMatchObject({
+      updatedAt: '2026-11-15T08:00:00.002Z',
+      deletedAt: '2026-11-15T08:00:00.002Z',
+    });
+    // A clock that stepped back still produces a newer version.
+    const [s] = addReading({ indicatorId: 'mood', value: 3 }, T1);
+    const [v] = updateReading(s.id, { value: 4 }, T0).filter((x) => x.id === s.id);
+    expect(v.updatedAt).toBe('2026-11-15T09:00:00.001Z');
+  });
+
   it('ignores unknown ids', () => {
     addReading({ indicatorId: 'mood', value: 4 }, T0);
     const before = loadOutbox();

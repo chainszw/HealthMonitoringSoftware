@@ -193,6 +193,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
   `format.ts`, `requestSync`, `validateBloodPressure`, routine tasks tick from readings; seed ends on amber
   BP after three short nights; every screen reads `useReadings()`; header gets crew sign-in, sync badge and
   "Send report"; `designMock.ts` and `?alert` removed.
+- 2026-11-15: Sync fix: local edits/deletes are versioned after the reading's previous version, so a
+  same-millisecond edit + delete no longer loses the delete (failing `sync.e2e` test, also on `main`).
 
 ## Person B — status
 
@@ -257,7 +259,7 @@ Person A owns logic and data. Only Person A's sessions edit this section.
   - Sign-in (client): `signIn(token)` checks the token with `GET /me` and refuses flight-surgeon tokens in the crew app. The first sign-in on a device keeps its readings and outbox (uploaded as that crew member's); switching to another crew member or `signOut()` clears the device's readings. `VITE_API_TOKEN` is a fallback token for local tests and demos only, because it ends up in the public JS bundle.
   - Server schema changes go in `MIGRATIONS` in `server/src/db.ts` (tracked with `PRAGMA user_version`). Never edit an applied migration; append a new one.
   - Comms delay: the server stands for Earth. Each astronaut write gets `arrives_at` = now + the mission's worst-case one-way delay (`commsDelaySeconds.max` in content.json) × `COMMS_DELAY_SCALE`. Flight-surgeon reads (readings, overview, trend, export) only include rows that have arrived; a row whose newest version is still in transit is hidden as a whole (simplification: an edit hides the old version too). The astronaut's own views and `/sync` are not delayed, since their devices are with them. With the scale at 0 (default) nothing changes and the clock is not even read.
-  - Sync: every server write takes the next `seq` (change counter); devices send their last `cursor` and get everything with a higher `seq`. Conflicts: the newest `updatedAt` wins, the server wins ties, and a stale change gets the server's version back, so devices converge. Device clocks more than 24h ahead are refused.
+  - Sync: every server write takes the next `seq` (change counter); devices send their last `cursor` and get everything with a higher `seq`. Conflicts: the newest `updatedAt` wins, the server wins ties, and a stale change gets the server's version back, so devices converge. A device always versions a change at least 1 ms after the reading's previous version (`nextVersion` in `storage.ts`), so an edit then a delete in the same millisecond, or after the clock steps back, isn't lost to a tie. Device clocks more than 24h ahead are refused.
   - Sync, client side: add/edit/delete write locally first, then queue the latest version per id in the outbox; background sync runs on start, about 1s after a change, every 30s, and on `online`/`focus`. Seed readings are never pushed (each device has its own demo data). Reset and clear are local only: they drop pending changes and set the cursor back to 0, so the next sync pulls the server's copy again. A change the server refuses is dropped from the outbox and reported in `useSync().error`.
   - All browser-only APIs in shared `src/lib` files are typed locally (no DOM types), because the server typechecks those files too.
   - On Windows (`core.autocrlf=true`), `npm run format:check` flags every file for CRLF line endings. Use `npx prettier --check --end-of-line auto .` locally. Git stores LF, so CI is unaffected.

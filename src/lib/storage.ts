@@ -184,6 +184,17 @@ function toChange(r: Reading, updatedAt: string, deletedAt?: string): SyncChange
   return change;
 }
 
+/**
+ * The time for a new version of a reading: now, but always after its previous version. Sync keeps
+ * the newest `updatedAt` and the server wins ties, so an edit then a delete in the same millisecond
+ * (or after the device clock stepped back) would otherwise lose the later change.
+ */
+function nextVersion(now: Date, previous?: string): string {
+  const prev = previous === undefined ? NaN : Date.parse(previous);
+  const t = Number.isNaN(prev) ? now.getTime() : Math.max(now.getTime(), prev + 1);
+  return new Date(t).toISOString();
+}
+
 /** Append a reading and persist. Returns the updated list. */
 export function addReading(input: NewReading, now = new Date()): Reading[] {
   const t = now.toISOString();
@@ -206,7 +217,7 @@ export function updateReading(id: string, patch: ReadingPatch, now = new Date())
   const readings = loadReadings();
   const index = readings.findIndex((r) => r.id === id);
   if (index < 0) return readings;
-  const t = now.toISOString();
+  const t = nextVersion(now, readings[index].updatedAt);
   const updated: Reading = { ...readings[index], ...patch, updatedAt: t };
   if ('note' in patch && patch.note === undefined) delete updated.note;
   const next = readings.with(index, updated);
@@ -220,7 +231,7 @@ export function deleteReading(id: string, now = new Date()): Reading[] {
   const readings = loadReadings();
   const reading = readings.find((r) => r.id === id);
   if (!reading) return readings;
-  const t = now.toISOString();
+  const t = nextVersion(now, reading.updatedAt);
   const next = readings.filter((r) => r.id !== id);
   saveReadings(next);
   enqueue(toChange(reading, t, t));

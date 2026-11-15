@@ -119,7 +119,12 @@ describe('sync between the app and the server', () => {
   });
 
   it('keeps the newest edit when two devices change the same reading', async () => {
-    const [r] = addReading({ indicatorId: 'heart_rate', value: 72 });
+    // Added 2 min ago, so the offline edit below (1 min ago) comes after it: a device never
+    // versions a change before the reading's previous version (see nextVersion in storage.ts).
+    const [r] = addReading(
+      { indicatorId: 'heart_rate', value: 72 },
+      new Date(Date.now() - 120_000),
+    );
     await sync();
 
     // This device edits while offline, but the other device's later edit reaches the server first.
