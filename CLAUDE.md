@@ -98,7 +98,7 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - localStorage keys: `chc:v1:readings`, `chc:v1:mission`, `chc:v1:outbox` (changes not yet sent to the
   server, latest per id), `chc:v1:sync` ({ cursor, lastSyncedAt }), `chc:v1:session` ({ token, crew }:
   who is signed in for sync), `chc:v1:routine` (routine completions per local day),
-  `chc:v1:missionStart` (optional mission start, ISO). Bump `v1` if the Reading shape changes incompatibly. Old ids
+  `chc:v1:missionStart` (optional mission start, ISO), `chc:v1:dev` (device-only dev settings, e.g. background). Bump `v1` if the Reading shape changes incompatibly. Old ids
   `glucose`/`temperature` are migrated on load.
 - API wire types (`src/lib/syncProtocol.ts`, shared by app and server): `SyncChange` = Reading +
   `updatedAt` + `deletedAt?`; `POST /sync { since, changes, mission? }` → `{ changes, cursor, rejected }`;
@@ -196,6 +196,8 @@ into the app shape below. Components import `content`, `getIndicator` etc. from 
 - 2026-11-15: Sync fix: local edits/deletes are versioned after the reading's previous version, so a
   same-millisecond edit + delete no longer loses the delete (failing `sync.e2e` test, also on `main`).
 - 2026-11-15: B: mission-aware animated space background (`SpaceBackdrop`), translucent header and rail.
+- 2026-11-15: B: two more backgrounds (`grid`, `aurora`) and a dev settings panel to switch them (saved in new key
+  `chc:v1:dev`, minimal edit to A's `storage.ts`); account menu no longer hidden behind the page.
 
 ## Person B — status
 
@@ -226,9 +228,14 @@ Person B owns visuals and UX. Only Person B's sessions edit this section.
   - Page headers use the compact `PageHeader` (`components/ui.tsx`); `PageTitle` is unused.
   - Status colour rule: amber/red only for abnormal items; normal text is neutral, only the small pill/icon is green.
   - Demo: the seed ends on amber BP 134/86 after three short nights; log e.g. 160/125 to show Act now.
-  - Background: `SpaceBackdrop.tsx` draws one fixed canvas behind the shell (slow star drift plus the limb of the
-    mission's planet: Earth/Moon/Mars, colours in `MISSION_SKY`, cross-fades on mission change). 30 fps, pauses in
-    hidden tabs, still frame with reduced motion, no dependency. Cards stay solid; header and rail are `bg-bg/60`.
+  - Background (`components/backdrop/`): `sky` = `SpaceBackdrop` (stars plus the mission's planet limb, colours in
+    `MISSION_SKY`, default), `grid` = `GridBackdrop` (dot grid, scan band, ECG trace), `aurora` = `AuroraBackdrop`
+    (blurred colour fields per mission, Web Animations API). Canvas ones share `useCanvasLoop` (30 fps, pauses in
+    hidden tabs, still frame with reduced motion). No dependency. Cards stay solid; header and rail are `bg-bg/60`,
+    and the header is `relative z-30` so the account menu stays above the page.
+  - Dev settings: `DevPanel` (sliders button, bottom right) shows in `npm run dev` or with `?dev` in the URL. It
+    picks the background and saves it per device (`chc:v1:dev` via `loadDevSettings`/`saveDevSetting`). `?bg=`
+    overrides it for one visit. Add future team-only toggles there, not in the crew-facing account menu.
   - Unused for now, not deleted: `StatusCard`, `VitalsForm`, `Streak`, `TrendChart`, `Disclaimer`.
 
 ## Person A — status

@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loggingStreak, latestByIndicator } from './readings';
 import {
+  DEV_KEY,
   READINGS_KEY,
   addReading,
   clearReadings,
   deleteReading,
   getReadingsSnapshot,
+  loadDevSettings,
   loadMission,
   loadOutbox,
   loadReadings,
   loadSyncState,
   refreshReadings,
   resetToSeed,
+  saveDevSetting,
   saveMission,
   saveSyncState,
   subscribeOutbox,
@@ -125,6 +128,15 @@ describe('edits and the sync outbox', () => {
 });
 
 describe('storage', () => {
+  it('keeps dev settings and ignores corrupt ones', () => {
+    expect(loadDevSettings()).toEqual({});
+    saveDevSetting('backdrop', 'aurora');
+    saveDevSetting('other', 'x');
+    expect(loadDevSettings()).toEqual({ backdrop: 'aurora', other: 'x' });
+    localStorage.setItem(DEV_KEY, '[1,2]');
+    expect(loadDevSettings()).toEqual({});
+  });
+
   it('seeds on first load', () => {
     expect(loadReadings().length).toBeGreaterThan(0);
   });

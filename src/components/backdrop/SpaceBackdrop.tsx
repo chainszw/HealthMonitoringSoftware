@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import type { MissionProfileId } from '../lib/types';
+import type { MissionProfileId } from '../../lib/types';
+import { CANVAS_CLASS, useCanvasLoop } from './useCanvasLoop';
 
 // Owner B: faint animated sky behind the app shell. Stars drift slowly; the limb of the
 // mission's body (Earth, Moon, Mars) glows at the bottom edge and cross-fades when the
@@ -25,7 +26,6 @@ const LAYERS = [
   { size: 1.4, alpha: 0.7, speed: 8 },
 ];
 const FADE_SECONDS = 1.2;
-const FRAME_MS = 1000 / 30;
 
 interface Star {
   x: number; // 0..1
@@ -79,18 +79,13 @@ const paletteOf = (m: MissionProfileId): Palette => {
 };
 
 export function SpaceBackdrop({ mission }: { mission: MissionProfileId }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const targetRef = useRef<Palette>(paletteOf(mission));
-
+  // Declared before useCanvasLoop so the target is current when a still frame is redrawn.
   useEffect(() => {
     targetRef.current = paletteOf(mission);
   }, [mission]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-
+  const canvasRef = useCanvasLoop(() => {
     const stars = makeStars();
     const copy = (p: Palette): Palette => ({
       body: [...p.body],
@@ -99,21 +94,7 @@ export function SpaceBackdrop({ mission }: { mission: MissionProfileId }) {
       glowAlpha: p.glowAlpha,
     });
     const current: Palette = copy(targetRef.current);
-    let w = 0;
-    let h = 0;
-    let raf = 0;
-    let last = 0;
     let elapsed = 0;
-    let offset = 0; // star drift in px
-
-    const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      w = window.innerWidth;
-      h = window.innerHeight;
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
 
     const fade = (dt: number) => {
       const t = Math.min(1, dt / FADE_SECONDS);
@@ -124,13 +105,16 @@ export function SpaceBackdrop({ mission }: { mission: MissionProfileId }) {
       current.glowAlpha = mix(current.glowAlpha, target.glowAlpha, t * 3);
     };
 
-    const draw = () => {
+    return (ctx, w, h, dt, still) => {
+      elapsed += dt;
+      if (still) Object.assign(current, copy(targetRef.current));
+      else fade(dt);
       ctx.clearRect(0, 0, w, h);
 
       // Stars, three depth layers drifting left.
       for (const s of stars) {
         const L = LAYERS[s.layer];
-        let x = (s.x * w - offset * L.speed) % w;
+        let x = (s.x * w - elapsed * L.speed) % w;
         if (x < 0) x += w;
         const tw = 0.75 + 0.25 * Math.sin(elapsed * s.twinkle + s.phase);
         ctx.fillStyle = `rgba(245,245,247,${L.alpha * tw})`;
@@ -171,66 +155,7 @@ export function SpaceBackdrop({ mission }: { mission: MissionProfileId }) {
       ctx.arc(cx, cy, R, Math.PI * 1.2, Math.PI * 1.8);
       ctx.stroke();
     };
+  }, mission);
 
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-    const tick = (now: number) => {
-      raf = requestAnimationFrame(tick);
-      if (document.hidden) {
-        last = now;
-        return;
-      }
-      if (now - last < FRAME_MS) return;
-      const dt = last ? Math.min((now - last) / 1000, 0.1) : 0;
-      last = now;
-      elapsed += dt;
-      offset += dt;
-      fade(dt);
-      draw();
-    };
-
-    const start = () => {
-      cancelAnimationFrame(raf);
-      if (reduce.matches) {
-        // Still frame; still follow mission changes (checked on a slow timer below).
-        Object.assign(current, copy(targetRef.current));
-        draw();
-      } else {
-        last = 0;
-        raf = requestAnimationFrame(tick);
-      }
-    };
-
-    // With reduced motion there is no loop, so redraw when the mission changes.
-    let shown = targetRef.current;
-    const still = setInterval(() => {
-      if (reduce.matches && shown !== targetRef.current) {
-        shown = targetRef.current;
-        start();
-      }
-    }, 300);
-
-    const onResize = () => {
-      resize();
-      draw();
-    };
-    resize();
-    start();
-    window.addEventListener('resize', onResize);
-    reduce.addEventListener('change', start);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearInterval(still);
-      window.removeEventListener('resize', onResize);
-      reduce.removeEventListener('change', start);
-    };
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      className="pointer-events-none fixed inset-0 -z-10 h-full w-full"
-    />
-  );
+  return <canvas ref={canvasRef} aria-hidden="true" className={CANVAS_CLASS} />;
 }

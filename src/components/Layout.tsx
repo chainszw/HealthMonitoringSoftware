@@ -2,6 +2,7 @@ import { Suspense, useState, type ComponentType } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { content } from '../data/content';
 import { formatDelay } from '../lib/format';
+import { loadDevSettings, saveDevSetting } from '../lib/storage';
 import { requestSync } from '../lib/sync';
 import type { MissionProfileId } from '../lib/types';
 import { useMission, useReadings, useSync } from '../lib/useReadings';
@@ -17,7 +18,9 @@ import {
   IconTrend,
   Logo,
 } from './icons';
-import { SpaceBackdrop } from './SpaceBackdrop';
+import { Backdrop } from './backdrop/Backdrop';
+import { initialBackdrop, type BackdropVariant } from './backdrop/variants';
+import { DevPanel } from './DevPanel';
 import { BTN } from './tone';
 import { useNow } from './useNow';
 import { dueEntries } from './vitals';
@@ -50,6 +53,17 @@ export function Layout() {
   const sync = useSync();
   const now = useNow();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [backdrop, setBackdrop] = useState<BackdropVariant>(() =>
+    initialBackdrop(window.location.search, loadDevSettings().backdrop),
+  );
+  // Dev settings: in `npm run dev`, or anywhere with `?dev` in the URL.
+  const [devPanel] = useState(
+    () => import.meta.env.DEV || new URLSearchParams(window.location.search).has('dev'),
+  );
+  const changeBackdrop = (v: BackdropVariant) => {
+    setBackdrop(v);
+    saveDevSetting('backdrop', v);
+  };
   const profile = content.missionProfiles.find((p) => p.id === mission);
   const delaySeconds = profile?.commsDelaySeconds.max ?? 0;
   const delay = formatDelay(delaySeconds);
@@ -76,8 +90,9 @@ export function Layout() {
 
   return (
     <div className="chc-fit relative isolate flex min-h-screen flex-col text-base text-ink">
-      <SpaceBackdrop mission={mission} />
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-line bg-bg/60 px-6 py-3.5 backdrop-blur-sm">
+      <Backdrop variant={backdrop} mission={mission} />
+      {devPanel && <DevPanel backdrop={backdrop} onBackdropChange={changeBackdrop} />}
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 relative z-30 border-b border-line bg-bg/60 px-6 py-3.5 backdrop-blur-sm">
         <NavLink to="/" className="flex items-center gap-3 text-ink no-underline">
           <Logo />
           <span className="text-[19px] font-medium tracking-[-0.02em]">Crew Health Console</span>

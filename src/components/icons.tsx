@@ -190,6 +190,15 @@ export const IconWind = (p: IconProps) => (
   </Svg>
 );
 
+export const IconSliders = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" />
+    <circle cx="16" cy="6" r="2" />
+    <circle cx="10" cy="12" r="2" />
+    <circle cx="18" cy="18" r="2" />
+  </Svg>
+);
+
 export function Logo() {
   return (
     <svg width="30" height="30" viewBox="0 0 36 36" fill="none" aria-hidden="true">
