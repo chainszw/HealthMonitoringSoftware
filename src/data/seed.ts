@@ -110,6 +110,16 @@ const EVENTS: Record<number, Record<string, number>> = {
   25: { spo2: 93 }, // amber: SpO2 dip
 };
 
+/**
+ * Scripted events counted back from today (0 = today), so the demo always opens on something
+ * to watch: three short nights in a row and blood pressure a little high this morning.
+ */
+const RECENT_EVENTS: Record<number, Record<string, number>> = {
+  2: { sleep_hours: 6.6 }, // amber
+  1: { sleep_hours: 6.4 }, // amber
+  0: { sleep_hours: 6.2, bp_systolic: 134, bp_diastolic: 86 }, // amber sleep and BP
+};
+
 const round = (v: number, step: number) => Number((Math.round(v / step) * step).toFixed(2));
 
 /**
@@ -133,7 +143,10 @@ export function generateSeed(days = 30, now = new Date(), seed = 42): Reading[] 
       if (ts > now) continue; // don't create readings in the future
 
       const noisy = s.baseline + s.drift * progress + (rand() * 2 - 1) * s.noise;
-      const value = EVENTS[missionDay]?.[s.indicatorId] ?? noisy;
+      const value =
+        RECENT_EVENTS[days - missionDay]?.[s.indicatorId] ??
+        EVENTS[missionDay]?.[s.indicatorId] ??
+        noisy;
       readings.push({
         id: `seed-${s.indicatorId}-${missionDay}`,
         indicatorId: s.indicatorId,

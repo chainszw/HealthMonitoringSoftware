@@ -229,6 +229,17 @@ interface EventHost {
 }
 
 let stopRunning: (() => void) | null = null;
+let runSoon: (() => void) | null = null;
+
+/**
+ * Sync now instead of waiting for the next tick (e.g. a "Send report" button). Returns false
+ * when background sync isn't running (no VITE_API_URL), so the app stays local-only.
+ */
+export function requestSync(): boolean {
+  if (!runSoon) return false;
+  runSoon();
+  return true;
+}
 
 /**
  * Start background sync. Safe to call many times (runs once). With an empty `apiUrl`, sync stays
@@ -278,6 +289,7 @@ export function startSync(apiUrl: string, opts: SyncOptions = {}): () => void {
   host?.addEventListener('online', now);
   host?.addEventListener('focus', now);
   host?.addEventListener('offline', offline);
+  runSoon = now;
   schedule(0);
 
   stopRunning = () => {
@@ -289,6 +301,7 @@ export function startSync(apiUrl: string, opts: SyncOptions = {}): () => void {
     host?.removeEventListener('focus', now);
     host?.removeEventListener('offline', offline);
     stopRunning = null;
+    runSoon = null;
     setStatus({ ...status, status: 'disabled' });
   };
   return stopRunning;

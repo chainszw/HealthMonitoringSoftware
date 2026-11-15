@@ -22,13 +22,22 @@
       "id": "bone",
       "name": "Bones",
       "spaceflightEffects": "PLACEHOLDER: Weight-bearing bones can lose roughly 1-1.5% of mass per month without countermeasures.",
-      "hazards": ["altered_gravity"]
+      "hazards": ["altered_gravity"],
+      "steps": [
+        "PLACEHOLDER: Finish today’s resistance session.",
+        "PLACEHOLDER: Eat your calcium and vitamin D portions.",
+        "PLACEHOLDER: Report new back or joint pain."
+      ]
     },
     {
       "id": "muscle",
       "name": "Muscles",
       "spaceflightEffects": "PLACEHOLDER: Postural muscles weaken without daily resistance exercise.",
-      "hazards": ["altered_gravity"]
+      "hazards": ["altered_gravity"],
+      "steps": [
+        "PLACEHOLDER: Finish today’s resistance and aerobic sessions.",
+        "PLACEHOLDER: Report new weakness, cramps or pain."
+      ]
     },
     {
       "id": "immune",
@@ -40,7 +49,12 @@
       "id": "eyes",
       "name": "Eyes and vision",
       "spaceflightEffects": "PLACEHOLDER: Spaceflight-associated neuro-ocular syndrome (SANS) can change vision.",
-      "hazards": ["altered_gravity"]
+      "hazards": ["altered_gravity"],
+      "steps": [
+        "PLACEHOLDER: Run this week’s near-vision card check.",
+        "PLACEHOLDER: Note any new blur or headaches.",
+        "PLACEHOLDER: Worse than last week? Flag it for your flight surgeon."
+      ]
     },
     {
       "id": "mind",
@@ -449,6 +463,121 @@
       "needsReview": true,
       "reviewNote": "The requested 1-5 scale has no established astronaut clinical thresholds in the reviewed sources. Its anchors and 1=red, 2=amber, 3-5=green mapping are explicitly proposed interface rules, not evidence-based diagnostic numbers. Clinical validation, privacy controls and symptom overrides are required before operational use.",
       "sources": ["nasa_risks", "nasa_hazards", "iss_sleep_study"]
+    }
+  ],
+  "routine": {
+    "daily": [
+      {
+        "id": "sleeplog",
+        "time": "06:30",
+        "title": "Sleep log",
+        "short": "sleep log",
+        "why": "PLACEHOLDER: Log how long you slept, right after your main sleep period.",
+        "category": "Sleep",
+        "duration": "1 min",
+        "indicatorIds": ["sleep_hours"]
+      },
+      {
+        "id": "water",
+        "time": "07:00",
+        "title": "Morning water, 500 ml",
+        "short": "morning water",
+        "why": "PLACEHOLDER: Your body sheds fluid early in flight. Drink to your daily target.",
+        "category": "Fluids"
+      },
+      {
+        "id": "vitals",
+        "time": "07:40",
+        "title": "Morning vitals",
+        "short": "morning vitals",
+        "why": "PLACEHOLDER: Heart rate, blood pressure, oxygen and temperature.",
+        "category": "Vitals",
+        "duration": "5 min",
+        "indicatorIds": ["heart_rate", "bp_systolic", "bp_diastolic", "spo2", "body_temp"]
+      },
+      {
+        "id": "resist",
+        "time": "09:30",
+        "title": "Resistance exercise",
+        "short": "resistance session",
+        "why": "PLACEHOLDER: Squats, deadlifts and heel raises load your hips and spine to protect bone.",
+        "category": "Exercise",
+        "duration": "45 min"
+      },
+      {
+        "id": "aerobic",
+        "time": "15:30",
+        "title": "Aerobic exercise",
+        "short": "aerobic session",
+        "why": "PLACEHOLDER: Cycle or treadmill. Keeps your heart and lungs ready for landing.",
+        "category": "Exercise",
+        "duration": "30 min"
+      },
+      {
+        "id": "mood",
+        "time": "18:00",
+        "title": "Mood check-in",
+        "short": "mood check-in",
+        "why": "PLACEHOLDER: One number and optional notes. Private to you and your flight surgeon.",
+        "category": "Mind",
+        "duration": "30 s",
+        "indicatorIds": ["mood"]
+      }
+    ],
+    "extra": [
+      {
+        "id": "rest",
+        "time": "13:00",
+        "title": "Rest block",
+        "short": "rest block",
+        "why": "PLACEHOLDER: Added because your last sleep was short.",
+        "category": "Sleep",
+        "duration": "30 min",
+        "showWhen": "short_sleep"
+      },
+      {
+        "id": "message",
+        "time": "19:30",
+        "title": "Record a message home",
+        "short": "message home",
+        "why": "PLACEHOLDER: With a {delay} delay, a recording works better than a call.",
+        "category": "Mind"
+      },
+      {
+        "id": "vision",
+        "time": "21:00",
+        "title": "Near-vision card check",
+        "short": "vision check",
+        "why": "PLACEHOLDER: Weekly check for changes in near vision.",
+        "category": "Eyes",
+        "duration": "5 min"
+      }
+    ]
+  },
+  "moodTags": [
+    {
+      "id": "tired",
+      "label": "Tired"
+    },
+    {
+      "id": "stressed",
+      "label": "Stressed"
+    },
+    {
+      "id": "homesick",
+      "label": "Homesick"
+    },
+    {
+      "id": "bored",
+      "label": "Bored"
+    },
+    {
+      "id": "crew",
+      "label": "Crew friction"
+    },
+    {
+      "id": "pain",
+      "label": "Aches or pain"
     }
   ],
   "sources": [

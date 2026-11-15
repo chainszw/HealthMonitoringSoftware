@@ -100,6 +100,8 @@ format. Full field list: CLAUDE.md.
   "hazards": [{ "id": "altered_gravity", "name": "Altered gravity", "summary": "…" }],
   "bodySystems": [
     { "id": "heart", "name": "…", "spaceflightEffects": "…", "hazards": ["altered_gravity"] },
+    // steps: what to do, for systems no indicator covers (eyes, bone, muscle)
+    { "id": "eyes", "name": "…", "spaceflightEffects": "…", "hazards": ["…"], "steps": ["…"] },
   ],
   "missionProfiles": [
     {
@@ -126,9 +128,40 @@ format. Full field list: CLAUDE.md.
       "sources": ["aha_pulse"],
     },
   ],
+  "routine": {
+    // daily: counted for progress and streaks; extra: shown under "Also today"
+    "daily": [
+      {
+        "id": "vitals",
+        "time": "07:40",
+        "title": "Morning vitals",
+        "short": "morning vitals",
+        "why": "…",
+        "category": "Vitals",
+        "duration": "5 min",
+        "indicatorIds": ["heart_rate", "bp_systolic", "bp_diastolic", "spo2", "body_temp"],
+      },
+    ],
+    "extra": [
+      {
+        "id": "rest",
+        "time": "13:00",
+        "title": "Rest block",
+        "why": "…",
+        "category": "Sleep",
+        "showWhen": "short_sleep",
+      },
+    ],
+  },
+  "moodTags": [{ "id": "tired", "label": "Tired" }],
   "sources": [{ "id": "aha_pulse", "title": "…", "org": "…", "url": "…" }],
 }
 ```
+
+A routine task with `indicatorIds` ticks itself once each indicator has a reading that day. A
+`why` can contain `{delay}` (the mission's one-way comms delay). `showWhen: "short_sleep"` shows a
+task only when the last sleep reading is amber or red. Mood tags are saved in the mood reading's
+`note`.
 
 Indicators: `heart_rate`, `bp_systolic`, `bp_diastolic` (heart), `spo2` (respiratory),
 `blood_glucose` (metabolic), `body_temp` (immune), `sleep_hours` and `mood` 1–5 (mind). Blood
@@ -139,7 +172,8 @@ pressure is two indicators, so every reading is a single number.
 **unknown**. `validateValue` rejects impossible input (e.g. SpO2 over 100, decimal heart rates).
 
 A `Reading` is `{ id, indicatorId, value, timestamp, note?, updatedAt? }`. localStorage keys:
-`chc:v1:readings`, `chc:v1:mission`, `chc:v1:outbox`, `chc:v1:sync`, `chc:v1:session`.
+`chc:v1:readings`, `chc:v1:mission`, `chc:v1:outbox`, `chc:v1:sync`, `chc:v1:session`,
+`chc:v1:routine`, `chc:v1:missionStart`.
 
 ## Team ownership
 
@@ -159,7 +193,8 @@ Changes to `src/lib/types.ts` affect all three owners: agree on them first, then
 **All guidance and medical text lives in `src/data/content.json`, never hardcoded in components.**
 That covers actions, measurement instructions, body-system descriptions, hazards, mission
 descriptions and the disclaimer. Components may only contain UI labels ("Save reading", "Trends").
-Before the demo, Owner C replaces every `PLACEHOLDER` (body systems and mission profiles), and an
+Before the demo, Owner C replaces every `PLACEHOLDER` (body systems, mission profiles and the
+routine tasks), and an
 indicator's `needsReview` becomes `false` only once its ranges are approved.
 `grep -n 'PLACEHOLDER\|"needsReview": true' src/data/content.json` shows what's left.
 

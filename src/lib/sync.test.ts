@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Outbox } from './storage';
-import { mergeIncoming, removeAcked } from './sync';
+import { mergeIncoming, removeAcked, requestSync, startSync, type FetchLike } from './sync';
 import type { SyncChange } from './syncProtocol';
 import type { Reading } from './types';
 
@@ -72,5 +72,24 @@ describe('removeAcked', () => {
 
   it('returns null when nothing was acknowledged', () => {
     expect(removeAcked({ a: change('a', 70, T2) }, [change('a', 70, T1)])).toBeNull();
+  });
+});
+
+describe('requestSync', () => {
+  it('does nothing until sync runs, then triggers a sync right away', async () => {
+    expect(requestSync()).toBe(false);
+    const fetchImpl = vi.fn<FetchLike>(async () =>
+      Response.json({ changes: [], cursor: 0, rejected: [] }),
+    );
+    const stop = startSync('http://api.test', {
+      fetchImpl,
+      defaultToken: 'chc_test',
+      intervalMs: 60_000,
+    });
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    expect(requestSync()).toBe(true);
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2));
+    stop();
+    expect(requestSync()).toBe(false);
   });
 });

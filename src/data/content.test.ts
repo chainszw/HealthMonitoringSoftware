@@ -78,6 +78,19 @@ describe('content adapter', () => {
     expect(content.missionProfiles.map((m) => m.id)).toEqual(['iss', 'lunar', 'mars']);
   });
 
+  it('loads routine tasks, mood tags and system steps', () => {
+    const ids = content.indicators.map((i) => i.id);
+    expect(content.routine.daily.length).toBeGreaterThan(0);
+    for (const t of [...content.routine.daily, ...content.routine.extra]) {
+      expect(t.time).toMatch(/^\d\d:\d\d$/);
+      for (const id of t.indicatorIds ?? []) expect(ids).toContain(id);
+    }
+    expect(content.routine.extra.some((t) => t.showWhen === 'short_sleep')).toBe(true);
+    expect(content.moodTags.length).toBeGreaterThan(0);
+    expect(getBodySystem('eyes')!.steps!.length).toBeGreaterThan(0);
+    expect(getBodySystem('heart')!.steps).toBeUndefined();
+  });
+
   it('falls back safely for unknown systems and sources', () => {
     const base = raw as RawContent;
     const out = normalizeContent({
@@ -88,5 +101,8 @@ describe('content adapter', () => {
     expect(out.indicators[0].bodySystem).toBe('metabolic');
     expect(out.indicators[0].sources).toEqual([{ title: 'missing' }]);
     expect(out.unknownStatusAction.length).toBeGreaterThan(0);
+    const bare = normalizeContent({ ...base, routine: undefined, moodTags: undefined });
+    expect(bare.routine).toEqual({ daily: [], extra: [] });
+    expect(bare.moodTags).toEqual([]);
   });
 });

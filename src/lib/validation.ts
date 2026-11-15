@@ -46,3 +46,23 @@ export function validateValue(
   }
   return { ok: true, value };
 }
+
+/**
+ * Blood pressure as a pair: both numbers valid (validateValue) and the top (systolic) number
+ * above the bottom (diastolic) one, which catches swapped fields.
+ */
+export function validateBloodPressure(
+  systolic: Pick<Indicator, 'input' | 'unit'>,
+  diastolic: Pick<Indicator, 'input' | 'unit'>,
+  rawSystolic: string | number | null | undefined,
+  rawDiastolic: string | number | null | undefined,
+): { ok: true; systolic: number; diastolic: number } | { ok: false; error: string } {
+  const s = validateValue(systolic, rawSystolic);
+  if (!s.ok) return { ok: false, error: `Top number: ${s.error}` };
+  const d = validateValue(diastolic, rawDiastolic);
+  if (!d.ok) return { ok: false, error: `Bottom number: ${d.error}` };
+  if (s.value <= d.value) {
+    return { ok: false, error: 'The top number should be higher than the bottom number.' };
+  }
+  return { ok: true, systolic: s.value, diastolic: d.value };
+}

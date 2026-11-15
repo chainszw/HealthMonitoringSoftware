@@ -61,4 +61,22 @@ describe('routine', () => {
     expect(week[5].done).toBe(1);
     expect(week[0].done).toBe(0);
   });
+
+  it('counts a task linked to indicators as done once each one has a reading that day', () => {
+    const linked = [{ id: 'bp', time: '07:30', indicatorIds: ['bp_systolic', 'bp_diastolic'] }];
+    const reading = (indicatorId: string, at: Date) => ({
+      id: `${indicatorId}-${at.getTime()}`,
+      indicatorId,
+      value: 1,
+      timestamp: at.toISOString(),
+    });
+    const half = [reading('bp_systolic', daysAgo(0, 7))];
+    expect(getRoutineDay(linked, {}, NOW, half).done).toBe(0);
+    const both = [...half, reading('bp_diastolic', daysAgo(0, 8))];
+    const day = getRoutineDay(linked, {}, NOW, both);
+    expect(day.items[0]).toMatchObject({ doneAt: daysAgo(0, 8).toISOString(), fromReadings: true });
+    const yesterday = [reading('bp_systolic', daysAgo(1)), reading('bp_diastolic', daysAgo(1))];
+    expect(routineStreak(linked, {}, NOW, yesterday)).toBe(1);
+    expect(routineWeek(linked, {}, NOW, 7, yesterday)[5].done).toBe(1);
+  });
 });

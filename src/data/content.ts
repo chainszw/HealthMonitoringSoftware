@@ -7,7 +7,9 @@ import type {
   Indicator,
   MissionProfile,
   MissionProfileId,
+  MoodTag,
   Range,
+  RoutineTaskContent,
   Source,
   StatusLevel,
 } from '../lib/types';
@@ -47,7 +49,13 @@ export interface RawIndicator {
 export interface RawContent {
   meta: { version: string; lastUpdated: string; disclaimer: string; unknownStatusAction?: string };
   hazards: Hazard[];
-  bodySystems: { id: string; name: string; spaceflightEffects: string; hazards: string[] }[];
+  bodySystems: {
+    id: string;
+    name: string;
+    spaceflightEffects: string;
+    hazards: string[];
+    steps?: string[];
+  }[];
   missionProfiles: {
     id: string;
     name: string;
@@ -55,6 +63,8 @@ export interface RawContent {
     commsDelaySeconds: { min: number; max: number };
   }[];
   indicators: RawIndicator[];
+  routine?: { daily?: RoutineTaskContent[]; extra?: RoutineTaskContent[] };
+  moodTags?: MoodTag[];
   sources: { id: string; title: string; org?: string; url?: string }[];
 }
 
@@ -129,13 +139,17 @@ export function normalizeContent(rawContent: RawContent): Content {
 
   const bodySystems: BodySystem[] = rawContent.bodySystems
     .filter((b) => isSystemId(b.id))
-    .map((b) => ({
-      id: b.id as BodySystemId,
-      name: b.name,
-      spaceflightEffects: b.spaceflightEffects,
-      hazards: b.hazards.map(hazardName),
-      indicatorIds: indicators.filter((i) => i.bodySystem === b.id).map((i) => i.id),
-    }));
+    .map((b) => {
+      const system: BodySystem = {
+        id: b.id as BodySystemId,
+        name: b.name,
+        spaceflightEffects: b.spaceflightEffects,
+        hazards: b.hazards.map(hazardName),
+        indicatorIds: indicators.filter((i) => i.bodySystem === b.id).map((i) => i.id),
+      };
+      if (b.steps?.length) system.steps = b.steps;
+      return system;
+    });
 
   const missionProfiles: MissionProfile[] = rawContent.missionProfiles
     .filter((m) => isMissionId(m.id))
@@ -148,6 +162,8 @@ export function normalizeContent(rawContent: RawContent): Content {
     indicators,
     bodySystems,
     missionProfiles,
+    routine: { daily: rawContent.routine?.daily ?? [], extra: rawContent.routine?.extra ?? [] },
+    moodTags: rawContent.moodTags ?? [],
   };
 }
 

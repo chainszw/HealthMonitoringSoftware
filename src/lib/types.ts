@@ -81,6 +81,8 @@ export interface BodySystem {
   hazards: string[];
   /** Derived: indicators whose bodySystem is this system. */
   indicatorIds: string[];
+  /** What to do, for systems with no indicator to take steps from (e.g. eyes, bone). */
+  steps?: string[];
 }
 
 export type MissionProfileId = 'iss' | 'lunar' | 'mars';
@@ -93,6 +95,30 @@ export interface MissionProfile {
   commsDelaySeconds: { min: number; max: number };
 }
 
+/** One task on the daily routine (Routine screen). Text comes from content.json. */
+export interface RoutineTaskContent {
+  id: string;
+  /** Planned time of day, "HH:MM". */
+  time: string;
+  title: string;
+  /** Lower-case name for buttons, e.g. "resistance session". */
+  short?: string;
+  /** Why it matters. May contain a `{delay}` token (the mission's comms delay). */
+  why: string;
+  category: string;
+  /** Free text, e.g. "45 min". */
+  duration?: string;
+  /** Done automatically once each of these indicators has a reading today. */
+  indicatorIds?: string[];
+  /** Only shown when the condition holds ('short_sleep': last sleep was amber or red). */
+  showWhen?: 'short_sleep';
+}
+
+export interface MoodTag {
+  id: string;
+  label: string;
+}
+
 /** What the app reads (built from content.json by src/data/content.ts). */
 export interface Content {
   disclaimer: string;
@@ -101,4 +127,8 @@ export interface Content {
   indicators: Indicator[];
   bodySystems: BodySystem[];
   missionProfiles: MissionProfile[];
+  /** Daily tasks (counted for progress and streaks) and extra tasks (shown, not counted). */
+  routine: { daily: RoutineTaskContent[]; extra: RoutineTaskContent[] };
+  /** Optional tags for the mood check-in (saved in the reading's note). */
+  moodTags: MoodTag[];
 }

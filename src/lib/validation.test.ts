@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getIndicator } from '../data/content';
-import { validateValue } from './validation';
+import { validateBloodPressure, validateValue } from './validation';
 
 const hr = getIndicator('heart_rate')!;
 const spo2 = getIndicator('spo2')!;
@@ -34,5 +34,17 @@ describe('validateValue', () => {
     expect(validateValue(mood, '0').ok).toBe(false);
     expect(validateValue(mood, '6').ok).toBe(false);
     expect(validateValue(spo2, '100')).toEqual({ ok: true, value: 100 });
+  });
+
+  it('checks blood pressure as a pair', () => {
+    const sys = getIndicator('bp_systolic')!;
+    const dia = getIndicator('bp_diastolic')!;
+    expect(validateBloodPressure(sys, dia, '120', '80')).toEqual({
+      ok: true,
+      systolic: 120,
+      diastolic: 80,
+    });
+    expect(validateBloodPressure(sys, dia, '80', '120').ok).toBe(false);
+    expect(validateBloodPressure(sys, dia, '', '80')).toMatchObject({ ok: false });
   });
 });

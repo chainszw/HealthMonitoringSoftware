@@ -92,20 +92,21 @@ export function useMission() {
  */
 export function useRoutine<T extends RoutineTask>(tasks: T[]) {
   const log = useSyncExternalStore(subscribeRoutine, getRoutineSnapshot);
+  const readings = useSyncExternalStore(subscribeReadings, getReadingsSnapshot);
   const toggle = useCallback((taskId: string) => {
     const current = loadRoutineLog();
     const done = current[localDay(new Date())]?.[taskId];
     saveRoutineLog(done ? markUndone(current, taskId) : markDone(current, taskId));
   }, []);
-  return useMemo(
-    () => ({
-      day: getRoutineDay(tasks, log),
-      streak: routineStreak(tasks, log),
-      week: routineWeek(tasks, log),
+  return useMemo(() => {
+    const now = new Date();
+    return {
+      day: getRoutineDay(tasks, log, now, readings),
+      streak: routineStreak(tasks, log, now, readings),
+      week: routineWeek(tasks, log, now, 7, readings),
       toggle,
-    }),
-    [tasks, log, toggle],
-  );
+    };
+  }, [tasks, log, readings, toggle]);
 }
 
 /** Mission day (1-based) from the stored mission start, or from the first reading. */
